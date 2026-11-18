@@ -47,12 +47,12 @@ CI (`.github/workflows/ci.yml`) runs the checks and compiles the Kotlin module.
 ```
 index.ts                 registers the Unistyles theme and the background task, then expo-router
 src/app/                 routes: (tabs)/ Apps · Downloads · Activity · Settings, add, app/[topicId],
-                         onboarding, scan, sign-in, install/[id] (target of the "ready" notification)
+                         onboarding, sign-in, install/[id] (target of the "ready" notification)
 src/components/ui/       the design-system components in React Native + Unistyles
 src/theme/               tokens.ts (generated), unistyles.ts (themes, dark first), icons.ts (path strings)
 src/fourpda/             fetch + windows-1251 decode + parser for topic pages, with fixtures and tests
-src/db/                  expo-sqlite + Drizzle schema: apps, files, downloads, activity, suggestions
-src/services/            checker (background + manual), download queue, notifications, session, phone scan
+src/db/                  expo-sqlite + Drizzle schema: apps, files, downloads, activity
+src/services/            checker (background + manual), download queue, notifications, session
 src/native/              typed wrapper over the Kotlin module, safe when it's missing (tests)
 modules/grabby-native/   Kotlin: PackageManager, WorkManager downloads, PackageInstaller, cookies, settings
 drizzle/                 generated SQL migrations (bundled as strings)
@@ -67,7 +67,12 @@ background checks, grouped into one `updates` notification.
 package name, the changelog spoiler and the APKs (`/forum/dl/post/<id>/<file>`, size after the
 link). Older builds in "Прошлые версии" spoilers are skipped. Many headers instead link
 "Скачать" to a later post (`view=findpost&p=…`); Grabby then fetches that post for the files.
-Both shapes are covered by fixtures modelled on real pages (Nov 2026).
+Some topics only keep their mods current: the header's official build is old while a
+"Модификации" spoiler lists newer `Версия: …` lines linking to later posts. When the newest mod
+is ahead of the header, Grabby follows it, uses that post's files and labels the build a mod (it
+is signed differently, so it may not install over the official app). The header's first picture
+outside spoilers is the app icon, shown until the app is installed and has a launcher icon.
+All three shapes are covered by fixtures modelled on real pages (Nov 2026).
 
 **Downloads.** Rows live in SQLite; bytes move in a WorkManager job (foreground `dataSync`
 service with a progress notification, resumable with `Range`, Wi‑Fi-only constraint). Two run
@@ -105,7 +110,7 @@ Deliberate departures from the original stack list:
 
 - Nothing has run on a device or emulator; the Kotlin module compiles, but downloads,
   installs, notifications and background checks are untested end to end.
-- **Search** (Add app, phone scan) is members-only on 4PDA, so the results parser is written
+- **Search** (Add app) is members-only on 4PDA, so the results parser is written
   against a guessed page shape. Save a real signed-in results page into
   `src/fourpda/__fixtures__/search.html` and adjust `parseSearch` if needed.
 - Guest downloads from `/forum/dl/post/…` return 404 HTML, so in practice downloads need a

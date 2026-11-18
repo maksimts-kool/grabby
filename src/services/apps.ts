@@ -20,6 +20,7 @@ export async function saveTopic(topic: Topic, lastModified: string | null, previ
     latestMod: topic.mod,
     latestSeenAt: versionChanged ? now : (previous?.latestSeenAt ?? now),
     headerUpdated: topic.headerUpdated,
+    topicIconUrl: topic.iconUrl,
     changelog: topic.changelog,
     lastCheckedAt: now,
     lastModified,

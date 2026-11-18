@@ -117,7 +117,7 @@ export default function LibraryScreen() {
         <AppRow
           testID={`app-row-${item.app.topicId}`}
           name={item.app.title}
-          iconSrc={item.app.iconUri}
+          iconSrc={item.app.iconUri ?? item.app.topicIconUrl}
           status={status}
           note={note}
           installed={item.app.installedVersion}

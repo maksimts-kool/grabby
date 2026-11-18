@@ -99,7 +99,7 @@ export default function DownloadsScreen() {
     const progress = d.bytesTotal ? (d.bytesDone / d.bytesTotal) * 100 : 0;
     const common = {
       name,
-      iconSrc: a?.iconUri,
+      iconSrc: a?.iconUri ?? a?.topicIconUrl,
       installed: a?.installedVersion,
       latest: d.version,
       size: d.bytesTotal ? formatSize(d.bytesTotal) : undefined,

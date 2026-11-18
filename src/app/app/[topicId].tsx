@@ -311,7 +311,12 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
   return (
     <Screen refreshing={recheck.isPending} onRefresh={() => recheck.mutate()} testID="app-detail">
       {bar}
-      <Header name={app.title} iconSrc={app.iconUri} sub={sub} version={version} />
+      <Header
+        name={app.title}
+        iconSrc={app.iconUri ?? app.topicIconUrl}
+        sub={sub}
+        version={version}
+      />
 
       {download?.status === 'failed' ? (
         <>
@@ -468,7 +473,10 @@ function Preview({
       {bar}
       <Header
         name={topic.title}
-        sub={meta(topic.category, topic.mod && `mod ${topic.mod}`, topic.description) || 'From 4PDA'}
+        iconSrc={topic.iconUrl}
+        sub={
+          meta(topic.category, topic.mod && `mod ${topic.mod}`, topic.description) || 'From 4PDA'
+        }
         version={<VersionDelta to={topic.version} size="lg" highlight />}
       />
       <View style={styles.pad}>

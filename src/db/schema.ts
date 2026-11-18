@@ -26,6 +26,8 @@ export const apps = sqliteTable('apps', {
   installedVersionCode: integer('installed_version_code'),
   /** Local file:// URI of the launcher icon extracted by the native module. */
   iconUri: text('icon_uri'),
+  /** The icon picture from the topic header, for apps that aren't installed. */
+  topicIconUrl: text('topic_icon_url'),
   /** Pattern of the file the user picked, so the next update picks the same build. */
   filePattern: text('file_pattern'),
   ignoredVersion: text('ignored_version'),

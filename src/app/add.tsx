@@ -225,7 +225,6 @@ export default function AddAppScreen() {
           </EmptyState>
         )
       ) : null}
-
     </Screen>
   );
 }

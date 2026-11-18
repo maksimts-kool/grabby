@@ -137,6 +137,8 @@ export async function fetchTopic(
             isBeta: false,
             files: post.files,
             changelog: post.changelog.length ? post.changelog : topic.changelog,
+            // The header's date belongs to the official build, not to this mod.
+            headerUpdated: null,
             mod: mod.label ?? 'Mod',
           };
         }

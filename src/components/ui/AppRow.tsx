@@ -79,7 +79,7 @@ export function AppRow(props: AppRowProps) {
         </>
       );
       extra = installedLine;
-      trail = action('Update', 'primary');
+      trail = action(installed ? 'Update' : 'Download', 'primary');
       break;
     case 'downloading':
       line = (

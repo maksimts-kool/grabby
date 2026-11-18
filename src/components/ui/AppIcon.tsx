@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -22,7 +23,7 @@ export function tileFor(name: string): Tile {
 
 export interface AppIconProps {
   name: string;
-  /** The app's real icon (file:// or data: URI). Wins when present. */
+  /** The app's real icon (file://, data: or https: from the topic). Wins when it loads square. */
   src?: string | null;
   tile?: Tile;
   /** sm 40 · md 48 · lg 72 */
@@ -40,8 +41,24 @@ export function AppIcon({ name, src, tile, size = 'md', letter }: AppIconProps) 
       .replace(/[^A-Za-z0-9Ѐ-ӿ]/g, '')
       .charAt(0)
       .toUpperCase();
-  if (src) {
-    return <Image source={{ uri: src }} style={styles.icon} accessibilityIgnoresInvertColors />;
+  // A topic picture that fails, or isn't square (a banner, a screenshot), falls back to the tile.
+  const [rejected, setRejected] = useState<string | null>(null);
+  if (src && rejected !== src) {
+    return (
+      <Image
+        source={{ uri: src }}
+        style={styles.icon}
+        contentFit="cover"
+        cachePolicy="disk"
+        recyclingKey={src}
+        onError={() => setRejected(src)}
+        onLoad={({ source }) => {
+          const ratio = source.width / Math.max(source.height, 1);
+          if (ratio < 0.85 || ratio > 1.18) setRejected(src);
+        }}
+        accessibilityIgnoresInvertColors
+      />
+    );
   }
   return (
     <View style={[styles.icon, styles.tile(t)]} accessibilityRole="image" accessibilityLabel={name}>

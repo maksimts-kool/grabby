@@ -100,6 +100,38 @@ describe('parseTopic — header linking to a later post', () => {
   });
 });
 
+describe('parseTopic — newer builds only as mods', () => {
+  const html = fixture('topic-mods.html');
+  const topic = parseTopic(html, 555003);
+
+  it('keeps the official version and files, without old versions or mod attachments', () => {
+    expect(topic.version).toBe('5.144.0.1632');
+    expect(topic.files.map((f) => f.name)).toEqual(['Transit 5.144.0.1632.apk']);
+    expect(topic.mod).toBeNull();
+  });
+
+  it('takes the header icon: not emoticons or screenshots in spoilers', () => {
+    expect(topic.iconUrl).toBe('https://4pda.to/s/as6yxZENBVwcHAT4ewvmIIkKcookNGz2oXwI.png');
+  });
+
+  it('lists the mods with their posts, as posted', () => {
+    expect(topic.mods).toEqual([
+      { version: '5.205.0.1815', postId: 146100099, label: 'Plus (NURIK)' },
+      { version: '5.204.1.1814', postId: 146100098, label: 'Plus (NURIK)' },
+    ]);
+  });
+
+  it('parses the mod post for its per-ABI files', () => {
+    const post = parsePost(html, 146100099);
+    expect(post.version).toBe('5.205.0.1815');
+    expect(post.changelog).toEqual(['Значок пробок рядом с вашей линией.']);
+    expect(post.files.map((f) => [f.name, f.sizeBytes])).toEqual([
+      ['Transit v5.205.0.1815 (1815) armeabi-v7a.apk', Math.round(38.6 * 1024 ** 2)],
+      ['Transit v5.205.0.1815 (1815) arm64-v8a.apk', Math.round(39.15 * 1024 ** 2)],
+    ]);
+  });
+});
+
 describe('parseTopic — failures', () => {
   it('recognises the login page', () => {
     const html =

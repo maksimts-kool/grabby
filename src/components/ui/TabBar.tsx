@@ -1,5 +1,12 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Icon, type IconName } from './Icon';
@@ -14,7 +21,7 @@ const TABS: Record<string, { icon: IconName; label: string }> = {
 
 /**
  * Bottom navigation, four fixed tabs: Apps · Downloads · Activity · Settings.
- * Active: lime pill behind the icon, ink label. Badges (amber) only on Apps and Downloads,
+ * Active: lime pill behind the icon (grows from the centre, 200 ms ease-out), ink label. Badges (amber) only on Apps and Downloads,
  * passed through each screen's `tabBarBadge` option.
  */
 export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
@@ -50,7 +57,8 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
             onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
             style={styles.tab}
           >
-            <View style={[styles.indicator, focused && styles.indicatorActive]}>
+            <View style={styles.indicator}>
+              <Pill focused={focused} />
               <Icon name={tab.icon} size={22} color={focused ? 'onLime' : 'inkMuted'} />
               {badge ? (
                 <View style={styles.count}>
@@ -75,6 +83,21 @@ export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: B
   );
 }
 
+function Pill({ focused }: { focused: boolean }) {
+  const t = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    t.value = withTiming(focused ? 1 : 0, {
+      duration: focused ? 200 : 120,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [focused, t]);
+  const style = useAnimatedStyle(() => ({
+    opacity: t.value,
+    transform: [{ scaleX: 0.5 + 0.5 * t.value }],
+  }));
+  return <Animated.View pointerEvents="none" style={[styles.pill, style]} />;
+}
+
 const styles = StyleSheet.create((theme) => ({
   bar: {
     flexDirection: 'row',
@@ -91,7 +114,11 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  indicatorActive: { backgroundColor: theme.colors.lime },
+  pill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.lime,
+  },
   label: { fontFamily: theme.type.label.fontFamily },
   count: {
     position: 'absolute',

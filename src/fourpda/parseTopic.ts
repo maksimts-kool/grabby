@@ -58,6 +58,8 @@ export const TopicSchema = PostSchema.extend({
   mods: z.array(ModSchema),
   /** Set when version and files come from a mod newer than the official build. */
   mod: z.string().nullable(),
+  /** The header's first picture outside spoilers: by forum convention, the app's icon. */
+  iconUrl: z.url().nullable(),
 });
 
 export type Topic = z.infer<typeof TopicSchema>;
@@ -223,6 +225,23 @@ function modsIn(body: HTMLElement): Mod[] {
   return out;
 }
 
+/**
+ * Headers open with the app's icon (`<img class="linked-image">`) before any spoiler. Skip
+ * spoiler content (screenshots), attachment clips and emoticons. The app still checks the
+ * image is square before showing it, in case a header opens with a banner instead.
+ */
+function iconIn(body: HTMLElement): string | null {
+  for (const img of body.querySelectorAll('img')) {
+    if (spoilerTitle(img, body) !== null) continue;
+    if (img.closest('a.attach-file')) continue;
+    const src = img.getAttribute('src') ?? '';
+    if (/emoticon|smiles?\//i.test(src) || img.classList.contains('emoticon')) continue;
+    const url = src.startsWith('//') ? `https:${src}` : src.replace(/^http:/, 'https:');
+    if (/^https:\/\/[^\s"']+\.(png|jpe?g|webp|gif)(\?|$)/i.test(url)) return url;
+  }
+  return null;
+}
+
 /** `findpost&p=<id>` links after the header's "Скачать" marker, outside old-version spoilers. */
 function downloadLinksIn(body: HTMLElement): number[] {
   // Source offset of the first "Скачать" text; `range` is the node's position in the page.
@@ -308,6 +327,7 @@ export function parseTopic(html: string, topicId: number): Topic {
     downloadPostIds: post.files.length ? [] : downloadLinksIn(body),
     mods: modsIn(body),
     mod: null,
+    iconUrl: iconIn(body),
   } satisfies Topic);
 }
 

@@ -10,6 +10,8 @@ env:
 - tapOn:
     id: 'search-input'
 - inputText: 'https://4pda.to/forum/index.php?showtopic=${TOPIC}'
+# Typed (not pasted) links wait for Open topic, so partial ids never open.
+- tapOn: 'Open topic'
 - extendedWaitUntil:
     visible:
       id: 'track'

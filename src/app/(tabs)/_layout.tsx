@@ -13,7 +13,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(props) => <TabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: theme.colors.bg } }}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: theme.colors.bg },
+        animation: 'shift',
+      }}
     >
       <Tabs.Screen name="index" options={{ title: 'Apps', tabBarBadge: pending || undefined }} />
       <Tabs.Screen
