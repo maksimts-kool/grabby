@@ -21,6 +21,7 @@ import { useNow, useSystemState } from '@/hooks/useSystemState';
 import { formatClock, formatDay, meta } from '@/lib/format';
 import { useSetting } from '@/lib/settings';
 import { native } from '@/native';
+import { clearActivity } from '@/services/activity';
 import { checksDelayed } from '@/services/background';
 import { requestNotifications } from '@/services/notifications';
 import type { IconName } from '@/theme/icons';
@@ -46,12 +47,17 @@ export default function ActivityScreen() {
 
   const clear = async () => {
     const saved = rows.data;
-    await db.delete(activity);
+    await clearActivity();
     snackbar({
       message: 'Activity cleared',
       action: 'Undo',
       onAction: () => {
-        if (saved.length) void db.insert(activity).values(saved);
+        // Drizzle queries are lazy: `void db.insert(…)` never ran. Await it (via then/catch).
+        if (saved.length) {
+          db.insert(activity)
+            .values(saved)
+            .catch(() => snackbar({ message: 'Couldn’t bring the activity back' }));
+        }
       },
     });
   };
@@ -62,11 +68,6 @@ export default function ActivityScreen() {
       title="Activity"
       subtitle={subtitle}
       actions={[
-        {
-          icon: 'bell',
-          label: 'Notification settings',
-          onPress: () => native.openNotificationSettings(),
-        },
         ...(rows.data.length
           ? [{ icon: 'trash' as const, label: 'Clear activity', onPress: () => void clear() }]
           : []),

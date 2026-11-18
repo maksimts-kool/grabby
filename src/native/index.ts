@@ -32,6 +32,7 @@ export const native = {
     GrabbyNative?.getAppIcon(packageName, size) ?? Promise.resolve(null),
   getApkInfo: (path: string) => GrabbyNative?.getApkInfo(path) ?? Promise.resolve(null),
   openApp: (packageName: string) => GrabbyNative?.openApp(packageName) ?? false,
+  uninstallApp: (packageName: string) => GrabbyNative?.uninstallApp(packageName) ?? false,
 
   enqueueDownload: (request: DownloadRequest) => GrabbyNative?.enqueueDownload(request) ?? null,
   pauseDownload: (id: string) => GrabbyNative?.pauseDownload(id),

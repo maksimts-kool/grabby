@@ -23,6 +23,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.zip.ZipFile
 import kotlin.math.roundToInt
 
 /**
@@ -33,6 +34,9 @@ import kotlin.math.roundToInt
  * 4PDA answers a download without a session with an HTML page instead of the file; that,
  * and any other non-APK response, fails with a code the app turns into a sentence:
  * sign-in, gone, storage, network, corrupt.
+ *
+ * Some posts attach the APK inside a .zip ("apk в архиве"); the APK is extracted next to it
+ * and the archive deleted, so the rest of the app only ever sees an .apk.
  */
 class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -226,9 +230,45 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
       }
       if (target.exists()) target.delete()
       if (!part.renameTo(target)) throw IOException("Couldn't move the finished file")
-      return target
+      return if (target.name.endsWith(".zip", ignoreCase = true)) extractApk(target) else target
     } finally {
       c.disconnect()
+    }
+  }
+
+  /**
+   * The APK inside a downloaded archive: the largest `.apk` entry (archives hold one build,
+   * sometimes beside a readme). Written under its own base name, never the entry's path, so
+   * an entry like `../x.apk` can't escape the folder. The archive is deleted afterwards.
+   */
+  private fun extractApk(zip: File): File {
+    try {
+      ZipFile(zip).use { archive ->
+        val entry = archive.entries().asSequence()
+          .filter { !it.isDirectory && it.name.endsWith(".apk", ignoreCase = true) && !it.name.contains("__MACOSX") }
+          .maxByOrNull { it.size }
+          ?: throw Failure("corrupt", "No APK in the archive")
+        val name = entry.name.substringAfterLast('/').replace(Regex("[\\\\:]"), "_")
+        val out = File(zip.parentFile, name)
+        if (entry.size > 0 && zip.parentFile!!.usableSpace < entry.size + 5L * 1024 * 1024) {
+          throw Failure("storage", "${entry.size}")
+        }
+        val tmp = File(zip.parentFile, "$name.part")
+        archive.getInputStream(entry).use { input ->
+          FileOutputStream(tmp).use { output -> input.copyTo(output, 64 * 1024); output.fd.sync() }
+        }
+        if (!isZip(tmp)) {
+          tmp.delete()
+          throw Failure("corrupt", "The archive's APK is damaged")
+        }
+        if (out.exists()) out.delete()
+        if (!tmp.renameTo(out)) throw IOException("Couldn't move the extracted APK")
+        return out
+      }
+    } catch (e: java.util.zip.ZipException) {
+      throw Failure("corrupt", e.message)
+    } finally {
+      zip.delete()
     }
   }
 

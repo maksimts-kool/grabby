@@ -21,7 +21,7 @@ import {
 } from '@/components/ui';
 import { useCheck } from '@/hooks/useCheck';
 import { fileSize, rowStatus, useLibrary, type LibraryItem } from '@/hooks/useLibrary';
-import { useRowActions } from '@/hooks/useRowActions';
+import { useInstalling, useRowActions, useStarting } from '@/hooks/useRowActions';
 import { useNow } from '@/hooks/useSystemState';
 import { formatClock, formatRelative, formatTransferred, formatSpeed } from '@/lib/format';
 import { queueAllUpdates } from '@/services/downloads';
@@ -34,6 +34,8 @@ export default function LibraryScreen() {
   const lib = useLibrary();
   const check = useCheck();
   const actions = useRowActions();
+  const installing = useInstalling();
+  const starting = useStarting();
   const snackbar = useSnackbar();
   const sheet = useRef<AppActionsSheetRef>(null);
   const now = useNow();
@@ -129,6 +131,8 @@ export default function LibraryScreen() {
           onPress={() => router.push(`/app/${item.app.topicId}`)}
           onLongPress={() => sheet.current?.open(item.app)}
           onAction={() => actions.act(item)}
+          installing={!!d && installing.includes(d.id)}
+          actionLoading={starting.includes(item.app.topicId)}
         />
       ),
     };

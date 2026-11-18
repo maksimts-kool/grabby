@@ -1,7 +1,7 @@
-import { parse, type HTMLElement, NodeType } from 'node-html-parser';
+import { parse, type HTMLElement, type Node, NodeType } from 'node-html-parser';
 import { z } from 'zod';
 
-import { isPrerelease } from '@/lib/version';
+import { compareVersions, isPrerelease } from '@/lib/version';
 
 /**
  * Parser for 4PDA topic pages. Grabby reads the first post (the "шапка"), which by forum
@@ -75,6 +75,8 @@ export class TopicParseError extends Error {
 }
 
 const APK = /\.(apk|apks|xapk|apkm)$/i;
+/** "OsmAnd+-Live-v5.5.0-Mod-arm64-v8a.zip": a build in an archive ("apk в архиве"), not maps. */
+const ZIP = /\.zip$/i;
 const OLD_VERSIONS = /прошл|предыдущ|стар|архив|old|previous|history|другим именем/i;
 const SKIP_SPOILERS = /скриншот|screenshot|скрины/i;
 const MODS = /модифи|^mods?\b/i;
@@ -108,22 +110,34 @@ export function parseSize(text: string): number | null {
 }
 
 /** Title of the spoiler an element sits in, if any. */
-function spoilerTitle(el: HTMLElement, body: HTMLElement): string | null {
+/** Titles of every spoiler an element sits in, innermost first. */
+function spoilerTitles(el: Node, body: HTMLElement): string[] {
+  const titles: string[] = [];
   for (
     let node: HTMLElement | null = el.parentNode;
     node && node !== body;
     node = node.parentNode
   ) {
     if (node.classList?.contains('post-block') && node.classList.contains('spoil')) {
-      return clean(node.querySelector('.block-title')?.text ?? '');
+      titles.push(clean(node.querySelector('.block-title')?.text ?? ''));
     }
   }
-  return null;
+  return titles;
 }
 
+/** Title of the spoiler an element sits in, if any. */
+function spoilerTitle(el: Node, body: HTMLElement): string | null {
+  return spoilerTitles(el, body)[0] ?? null;
+}
+
+/**
+ * Old builds, media and mods are not the current download. Checks every enclosing spoiler:
+ * headers nest "Прошлые версии" → "Версии 0.x" → OsmAnd_0.5.3.apk.
+ */
 function inOldOrMedia(el: HTMLElement, body: HTMLElement) {
-  const t = spoilerTitle(el, body);
-  return !!t && (OLD_VERSIONS.test(t) || SKIP_SPOILERS.test(t) || MODS.test(t));
+  return spoilerTitles(el, body).some(
+    (t) => OLD_VERSIONS.test(t) || SKIP_SPOILERS.test(t) || MODS.test(t),
+  );
 }
 
 function fileFromLink(a: HTMLElement): TopicFile | null {
@@ -139,7 +153,7 @@ function fileFromLink(a: HTMLElement): TopicFile | null {
       name = last;
     }
   }
-  if (!APK.test(name)) return null;
+  if (!APK.test(name) && !(ZIP.test(name) && FILE_VERSION.test(name))) return null;
   // The size follows the link as a text node: " ( 1.95 МБ )".
   let sizeBytes: number | null = null;
   const siblings = a.parentNode?.childNodes ?? [];
@@ -213,13 +227,18 @@ function modsIn(body: HTMLElement): Mod[] {
     if (!content) continue;
     for (const line of content.innerHTML.split(/<br\s*\/?>/i)) {
       const version = line.match(VERSION)?.[1]?.trim();
-      const link = parse(line)
+      const doc = parse(line);
+      const link = doc
         .querySelectorAll('a')
-        .map((a) => ({ id: findpostId(a), label: clean(a.text) || null }))
+        .map((a) => ({ id: findpostId(a), text: clean(a.text) }))
         .find((l) => l.id);
-      if (version && link?.id && !out.some((m) => m.postId === link.id)) {
-        out.push({ version, postId: link.id, label: link.label });
-      }
+      if (!version || !link?.id || out.some((m) => m.postId === link.id)) continue;
+      // The variant after the version ("5.5.0 Unlocked") names the mod better than the link,
+      // which is often just "Topic (Пост user #id)". Without one, the link text is the name.
+      const lineText = clean(doc.text);
+      const before = link.text ? lineText.slice(0, lineText.indexOf(link.text)) : lineText;
+      const variant = clean(before.slice(before.indexOf(version) + version.length));
+      out.push({ version, postId: link.id, label: variant || link.text || null });
     }
   }
   return out;
@@ -242,13 +261,34 @@ function iconIn(body: HTMLElement): string | null {
   return null;
 }
 
-/** `findpost&p=<id>` links after the header's "Скачать" marker, outside old-version spoilers. */
-function downloadLinksIn(body: HTMLElement): number[] {
-  // Source offset of the first "Скачать" text; `range` is the node's position in the page.
+/** Text on the same line before an element: back through siblings (and up) to a <br>. */
+function lineBefore(el: HTMLElement, body: HTMLElement): string {
+  let text = '';
+  for (let node: HTMLElement | null = el; node && node !== body; node = node.parentNode) {
+    const siblings = node.parentNode?.childNodes ?? [];
+    for (let i = siblings.indexOf(node) - 1; i >= 0; i--) {
+      const sib = siblings[i];
+      if (sib.nodeType === NodeType.ELEMENT_NODE && (sib as HTMLElement).tagName === 'BR') {
+        return text;
+      }
+      text = sib.text + text;
+    }
+  }
+  return text;
+}
+
+/**
+ * `findpost&p=<id>` links in the header's own "Скачать" section: after a "Скачать" marker and,
+ * like the marker, outside every spoiler (Плагины, Ссылки… have their own "Скачать на 4pda").
+ * Lines often carry a version ("Версия: 5.5.0 GP Plus arm64 <a findpost>"); newest first.
+ */
+function downloadLinksIn(body: HTMLElement): { ids: number[]; newest: string | null } {
+  // Source offset of the first top-level "Скачать" text; `range` is the position in the page.
   let markerAt = -1;
   const walk = (node: HTMLElement): boolean => {
     for (const child of node.childNodes) {
       if (child.nodeType === NodeType.TEXT_NODE && DOWNLOAD.test(child.rawText)) {
+        if (spoilerTitle(child, body) !== null) continue;
         markerAt = child.range[0];
         return true;
       }
@@ -256,16 +296,20 @@ function downloadLinksIn(body: HTMLElement): number[] {
     }
     return false;
   };
-  if (!walk(body)) return [];
-  const ids: number[] = [];
+  if (!walk(body)) return { ids: [], newest: null };
+  const links: { id: number; version: string | null; at: number }[] = [];
   for (const a of body.querySelectorAll('a')) {
     const id = findpostId(a);
-    if (!id) continue;
-    if (a.range[0] < markerAt) continue;
-    if (inOldOrMedia(a, body)) continue;
-    if (!ids.includes(id)) ids.push(id);
+    if (!id || a.range[0] < markerAt) continue;
+    if (spoilerTitle(a, body) !== null) continue;
+    if (links.some((l) => l.id === id)) continue;
+    const version = lineBefore(a, body).match(VERSION)?.[1]?.trim() ?? null;
+    links.push({ id, version, at: links.length });
   }
-  return ids;
+  links.sort((x, y) =>
+    x.version && y.version ? compareVersions(y.version, x.version) || x.at - y.at : x.at - y.at,
+  );
+  return { ids: links.map((l) => l.id), newest: links.find((l) => l.version)?.version ?? null };
 }
 
 export function parseTopic(html: string, topicId: number): Topic {
@@ -298,7 +342,12 @@ export function parseTopic(html: string, topicId: number): Topic {
     : null;
 
   const post = readPost(body);
+  const downloads = downloadLinksIn(body);
   let version = post.version;
+  // "Скачать:" lines list variants in any order; the header's first "Версия" may be an older one.
+  if (downloads.newest && (!version || compareVersions(downloads.newest, version) > 0)) {
+    version = downloads.newest;
+  }
   if (!version && description) version = description.match(/\b(\d+(?:\.\d+)+)\b/)?.[1] ?? null;
 
   let packageName: string | null = null;
@@ -324,7 +373,7 @@ export function parseTopic(html: string, topicId: number): Topic {
     headerUpdated: body.innerHTML.match(HEADER_DATE)?.[1] ?? null,
     changelog: post.changelog,
     files: post.files,
-    downloadPostIds: post.files.length ? [] : downloadLinksIn(body),
+    downloadPostIds: post.files.length ? [] : downloads.ids,
     mods: modsIn(body),
     mod: null,
     iconUrl: iconIn(body),

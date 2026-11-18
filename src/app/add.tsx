@@ -24,6 +24,7 @@ import { db } from '@/db/client';
 import { apps } from '@/db/schema';
 import { fetchTopic, FourPdaError, searchTopics } from '@/fourpda/client';
 import { parseTopicLink } from '@/fourpda/urls';
+import { meta } from '@/lib/format';
 import { trackTopic, untrack } from '@/services/apps';
 import { native } from '@/native';
 
@@ -44,8 +45,16 @@ export default function AddAppScreen() {
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<number | null>(null);
   const debounced = useDebounced(query.trim(), 300);
-  const tracked = useLiveQuery(db.select({ id: apps.topicId }).from(apps));
+  const tracked = useLiveQuery(
+    db
+      .select({ id: apps.topicId, iconUri: apps.iconUri, topicIconUrl: apps.topicIconUrl })
+      .from(apps),
+  );
   const trackedIds = new Set(tracked.data.map((t) => t.id));
+  const trackedIcon = (topicId: number) => {
+    const t = tracked.data.find((a) => a.id === topicId);
+    return t ? (t.iconUri ?? t.topicIconUrl) : null;
+  };
 
   const isLink = looksLikeLink(debounced);
   const typedLinkId = isLink ? parseTopicLink(debounced) : null;
@@ -211,8 +220,9 @@ export default function AddAppScreen() {
                 <AppRow
                   key={h.topicId}
                   name={h.title}
+                  iconSrc={trackedIcon(h.topicId)}
                   status={trackedIds.has(h.topicId) ? 'tracked' : 'track'}
-                  note={h.description}
+                  note={meta(h.description, h.forum) || undefined}
                   trailing={trailing(h.topicId)}
                   onPress={() => router.push(`/app/${h.topicId}`)}
                 />

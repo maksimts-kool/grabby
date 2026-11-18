@@ -3,6 +3,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { ColorToken } from '@/theme/unistyles';
 import { Icon, type IconName } from './Icon';
+import { Spin } from './Spin';
 
 export interface IconButtonProps {
   icon: IconName;
@@ -15,6 +16,8 @@ export interface IconButtonProps {
   /** Amber dot. */
   badge?: boolean;
   loading?: boolean;
+  /** Turns the icon itself (Check now's arrows) instead of swapping in a spinner. */
+  spinning?: boolean;
   color?: ColorToken;
   disabled?: boolean;
   onPress?: () => void;
@@ -28,6 +31,7 @@ export function IconButton({
   size = 'md',
   badge,
   loading,
+  spinning,
   color = 'ink',
   disabled,
   onPress,
@@ -36,12 +40,12 @@ export function IconButton({
   const { theme } = useUnistyles();
   styles.useVariants({ variant, size });
   return (
-    <View style={[styles.clip, disabled && styles.disabled]}>
+    <View style={[styles.clip, disabled && !spinning && styles.disabled]}>
       <Pressable
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityState={{ disabled: !!disabled, busy: !!loading }}
+        accessibilityState={{ disabled: !!disabled, busy: !!loading || !!spinning }}
         disabled={disabled}
         onPress={onPress}
         android_ripple={{ color: theme.ripple.neutral, borderless: variant === 'plain' }}
@@ -51,7 +55,9 @@ export function IconButton({
         {loading ? (
           <ActivityIndicator size={size === 'sm' ? 16 : 20} color={theme.colors[color]} />
         ) : (
-          <Icon name={icon} size={size === 'sm' ? 20 : 24} color={color} />
+          <Spin active={!!spinning}>
+            <Icon name={icon} size={size === 'sm' ? 20 : 24} color={color} />
+          </Spin>
         )}
       </Pressable>
       {badge ? <View style={styles.badge} pointerEvents="none" /> : null}

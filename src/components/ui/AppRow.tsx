@@ -36,6 +36,10 @@ export interface AppRowProps {
   /** The trailing button. Acts directly; never opens the detail screen. */
   onAction?: () => void;
   actionDisabled?: boolean;
+  /** The trailing button is busy (a download being queued). */
+  actionLoading?: boolean;
+  /** Ready row whose install is running: a moving bar instead of the Install button. */
+  installing?: boolean;
   /** Replace the default trailing element. `null` removes it. */
   trailing?: ReactNode;
   testID?: string;
@@ -56,6 +60,7 @@ export function AppRow(props: AppRowProps) {
       icon={icon}
       onPress={props.onAction}
       disabled={props.actionDisabled}
+      loading={props.actionLoading}
     >
       {label}
     </Button>
@@ -114,12 +119,21 @@ export function AppRow(props: AppRowProps) {
         <>
           <VersionDelta to={latest} highlight size="sm" />
           <Text variant="caption" color="inkMuted">
-            Downloaded
+            {props.installing ? 'Installing…' : 'Downloaded'}
           </Text>
         </>
       );
-      extra = installedLine;
-      trail = action('Install', 'primary');
+      if (props.installing) {
+        extra = (
+          <View style={styles.progress}>
+            <ProgressBar indeterminate label={`Installing ${name}`} />
+          </View>
+        );
+        trail = null;
+      } else {
+        extra = installedLine;
+        trail = action('Install', 'primary');
+      }
       break;
     case 'failed':
       line = (
@@ -138,7 +152,8 @@ export function AppRow(props: AppRowProps) {
     case 'tracked':
       line = (
         <>
-          <VersionDelta to={latest} size="sm" />
+          {/* Search hits have no version: no empty slot (and gap) before the note. */}
+          {latest ? <VersionDelta to={latest} size="sm" /> : null}
           {note ? (
             <Text variant="caption" color="inkMuted" numberOfLines={1} style={styles.shrink}>
               {note}

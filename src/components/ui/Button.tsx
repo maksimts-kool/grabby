@@ -3,6 +3,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { ColorToken } from '@/theme/unistyles';
 import { Icon, type IconName } from './Icon';
+import { Spin } from './Spin';
 import { Text } from './Text';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -17,6 +18,8 @@ export interface ButtonProps {
   block?: boolean;
   /** A spinner replaces the icon; the label stays. */
   loading?: boolean;
+  /** The icon itself turns (checking); the button stays pressable-looking but inert. */
+  spinning?: boolean;
   disabled?: boolean;
   onPress?: () => void;
   /** Verb first, sentence case, no full stop: "Update (18 MB)". */
@@ -38,6 +41,7 @@ export function Button({
   icon,
   block,
   loading,
+  spinning,
   disabled,
   onPress,
   children,
@@ -53,8 +57,8 @@ export function Button({
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={children}
-        accessibilityState={{ disabled: !!disabled, busy: !!loading }}
-        disabled={disabled || loading}
+        accessibilityState={{ disabled: !!disabled, busy: !!loading || !!spinning }}
+        disabled={disabled || loading || spinning}
         onPress={onPress}
         android_ripple={{ color: ripple }}
         hitSlop={size === 'sm' ? 6 : undefined}
@@ -63,7 +67,9 @@ export function Button({
         {loading ? (
           <ActivityIndicator size={size === 'sm' ? 14 : 18} color={theme.colors[label]} />
         ) : icon ? (
-          <Icon name={icon} size={size === 'sm' ? 16 : 20} color={label} />
+          <Spin active={!!spinning}>
+            <Icon name={icon} size={size === 'sm' ? 16 : 20} color={label} />
+          </Spin>
         ) : null}
         <Text variant="bodyStrong" color={label} style={styles.label} numberOfLines={1}>
           {children}

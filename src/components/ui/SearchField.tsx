@@ -10,7 +10,7 @@ export interface SearchFieldProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   label?: string;
-  /** Empty field: trailing button reads the clipboard for a topic link. */
+  /** Empty field: trailing button reads the clipboard for a topic link (Add app only). */
   onPasteLink?: () => void;
   autoFocus?: boolean;
   onSubmitEditing?: () => void;
@@ -56,7 +56,7 @@ export function SearchField({
           color="inkMuted"
           onPress={() => onChangeText('')}
         />
-      ) : (
+      ) : onPasteLink ? (
         <IconButton
           icon="link"
           label="Paste link"
@@ -64,7 +64,7 @@ export function SearchField({
           color="inkMuted"
           onPress={onPasteLink}
         />
-      )}
+      ) : null}
     </View>
   );
 }

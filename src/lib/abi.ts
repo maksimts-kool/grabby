@@ -51,7 +51,8 @@ export function pickFile<T extends PickableFile>(
   deviceAbis: readonly string[],
   options: { preferredAbi?: Abi | null; rememberedPattern?: string | null } = {},
 ): T | null {
-  const apks = files.filter((f) => /\.(apk|apks|xapk|apkm)$/i.test(f.name));
+  // Zips are builds too ("apk в архиве"): the parser only keeps versioned ones.
+  const apks = files.filter((f) => /\.(apk|apks|xapk|apkm|zip)$/i.test(f.name));
   if (!apks.length) return null;
   if (options.rememberedPattern) {
     const match = apks.find((f) => fileNamePattern(f.name) === options.rememberedPattern);

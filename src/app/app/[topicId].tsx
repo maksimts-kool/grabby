@@ -15,6 +15,7 @@ import {
   EmptyState,
   FileOption,
   Gap,
+  ProgressBar,
   List,
   Screen,
   SectionHeader,
@@ -31,7 +32,7 @@ import { fetchTopic, FourPdaError } from '@/fourpda/client';
 import type { Topic } from '@/fourpda/parseTopic';
 import { topicUrl } from '@/fourpda/urls';
 import { useApp, type LibraryItem } from '@/hooks/useLibrary';
-import { useRowActions } from '@/hooks/useRowActions';
+import { useInstalling, useRowActions, useStarting } from '@/hooks/useRowActions';
 import { useNow, useSystemState } from '@/hooks/useSystemState';
 import { abiFromFileName } from '@/lib/abi';
 import {
@@ -46,7 +47,7 @@ import { useSetting } from '@/lib/settings';
 import { native } from '@/native';
 import { rememberFile, setNotifyBetas, trackTopic } from '@/services/apps';
 import { refreshTopic } from '@/services/checker';
-import { cancel, failureText, pause, resume } from '@/services/downloads';
+import { cancel, failureText, needsSignIn, pause, resume } from '@/services/downloads';
 
 /** "16.11.2026" → "16 Nov" */
 function postedDate(ddmmyyyy: string | null) {
@@ -72,8 +73,10 @@ function postedDate(ddmmyyyy: string | null) {
 export default function AppDetailScreen() {
   const params = useLocalSearchParams<{ topicId: string }>();
   const topicId = Number(params.topicId);
-  const { loaded, item } = useApp(topicId);
+  const { loaded, item, fittingAttachId } = useApp(topicId);
   const sheet = useRef<AppActionsSheetRef>(null);
+  // Re-reads the topic now: the top-bar button, pull-to-refresh and "Check the topic again".
+  const recheck = useMutation({ mutationFn: () => refreshTopic(topicId) });
 
   // A topic that isn't tracked (opened from a pasted link) is shown as a preview with Track.
   const preview = useQuery({
@@ -90,6 +93,17 @@ export default function AppDetailScreen() {
     <TopBar
       back
       actions={[
+        ...(item
+          ? [
+              {
+                icon: 'update' as const,
+                label: 'Check for updates',
+                spinning: recheck.isPending,
+                onPress: () => recheck.mutate(),
+                testID: 'check-topic',
+              },
+            ]
+          : []),
         {
           icon: 'external',
           label: 'Open topic on 4PDA',
@@ -146,8 +160,8 @@ export default function AppDetailScreen() {
 
   return (
     <>
-      <Tracked item={item} bar={bar} />
-      <AppActionsSheet ref={sheet} onUntracked={() => router.back()} />
+      <Tracked item={item} fittingAttachId={fittingAttachId} recheck={recheck} bar={bar} />
+      <AppActionsSheet ref={sheet} onDetail onUntracked={() => router.back()} />
     </>
   );
 }
@@ -209,15 +223,28 @@ function Header({
   );
 }
 
-function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
+function Tracked({
+  item,
+  fittingAttachId,
+  recheck,
+  bar,
+}: {
+  recheck: { isPending: boolean; mutate: () => void };
+  item: LibraryItem;
+  /** The file built for this phone's ABI: "Fits this phone", whatever build is picked. */
+  fittingAttachId: number | null;
+  bar: React.ReactNode;
+}) {
   const { app, files, download } = item;
   const now = useNow();
   const system = useSystemState();
   const actions = useRowActions();
+  const installing = useInstalling();
+  const starting = useStarting();
   const snackbar = useSnackbar();
   const [betasGlobal] = useSetting('notifyBetas');
+  const [signedIn] = useSetting('signedIn');
   const [chosen, setChosen] = useState<number | null>(null);
-  const recheck = useMutation({ mutationFn: () => refreshTopic(app.topicId) });
 
   const active =
     download && ['queued', 'downloading', 'paused'].includes(download.status) ? download : null;
@@ -227,7 +254,6 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
 
   const sub = meta(
     app.category,
-    app.latestMod && `mod ${app.latestMod}`,
     upToDate
       ? app.lastCheckedAt && `checked ${formatRelative(app.lastCheckedAt, now)}`
       : app.latestSeenAt && `topic updated ${formatRelative(app.latestSeenAt, now)}`,
@@ -269,6 +295,16 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
         onCancel={() => void cancel(active.id)}
       />
     );
+  } else if (download?.status === 'ready' && installing.includes(download.id)) {
+    // Copying a big APK into Android's installer takes seconds; then Android asks to confirm.
+    primary = (
+      <View style={styles.installingBox} testID="installing">
+        <Text variant="label" color="inkMuted">
+          Installing…
+        </Text>
+        <ProgressBar indeterminate label={`Installing ${app.title}`} />
+      </View>
+    );
   } else if (download?.status === 'ready') {
     primary = (
       <Button
@@ -287,6 +323,7 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
       <Button
         block
         icon="download"
+        loading={starting.includes(app.topicId)}
         onPress={() => void actions.start(app.topicId, selectedFile.attachId)}
         testID="update"
       >
@@ -322,10 +359,12 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
         <>
           <Banner
             tone="danger"
-            title={failureText(download.error)}
-            action={download.error === 'sign-in' ? 'Sign in to 4PDA' : 'Retry'}
+            title={failureText(download.error, signedIn)}
+            action={needsSignIn(download.error, signedIn) ? 'Sign in to 4PDA' : 'Retry'}
             onAction={() =>
-              download.error === 'sign-in' ? router.push('/sign-in') : void resume(download.id)
+              needsSignIn(download.error, signedIn)
+                ? router.push('/sign-in')
+                : void resume(download.id)
             }
           />
           <Gap />
@@ -341,14 +380,6 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
             onAction={native.openInstallPermissionSettings}
           >
             Android blocks installs from Grabby until you allow it.
-          </Banner>
-          <Gap />
-        </>
-      ) : null}
-      {app.latestMod && item.update && app.installedVersion ? (
-        <>
-          <Banner tone="warn" icon="shield" title={`${app.latestVersion} is a mod`}>
-            {`Posted as ${app.latestMod}. Mods are signed differently, so Android may refuse to install it over your copy until you uninstall that first.`}
           </Banner>
           <Gap />
         </>
@@ -369,20 +400,16 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
 
       {primary ? <View style={styles.pad}>{primary}</View> : null}
 
-      {upToDate ? (
-        <>
-          <SectionHeader title="Alerts" />
-          <List inset={54}>
-            <SettingRow
-              icon="beta"
-              title="Notify about betas"
-              detail="For this app only"
-              on={app.notifyBetas ?? betasGlobal}
-              onToggle={(on) => void setNotifyBetas(app.topicId, on)}
-            />
-          </List>
-        </>
-      ) : null}
+      <SectionHeader title="Alerts" />
+      <List inset={54}>
+        <SettingRow
+          icon="beta"
+          title="Notify about betas"
+          detail="For this app only"
+          on={app.notifyBetas ?? betasGlobal}
+          onToggle={(on) => void setNotifyBetas(app.topicId, on)}
+        />
+      </List>
 
       <SectionHeader title="File" />
       <View style={[styles.pad, styles.stack]}>
@@ -410,25 +437,24 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
               name={f.name}
               abi={abiFromFileName(f.name)}
               size={f.sizeBytes ? formatSize(f.sizeBytes) : undefined}
-              note={
-                /\bmod\b|_mod/i.test(f.name)
-                  ? 'Mod'
-                  : /\blite\b|_lite/i.test(f.name)
-                    ? 'Lite'
-                    : null
-              }
+              note={/\blite\b|_lite/i.test(f.name) ? 'Lite' : null}
               selected={f.attachId === selected}
-              recommended={f.attachId === item.file?.attachId && abiFromFileName(f.name) !== null}
-              disabled={!!active && f.attachId !== active.attachId}
-              onPress={
-                active
-                  ? undefined
-                  : () => {
-                      setChosen(f.attachId);
-                      void rememberFile(app.topicId, f.name);
-                      snackbar({ message: 'Grabby will pick this build next time too' });
-                    }
-              }
+              recommended={f.attachId === fittingAttachId}
+              onPress={() => {
+                if (f.attachId === selected) return;
+                setChosen(f.attachId);
+                void rememberFile(app.topicId, f.name);
+                if (active) {
+                  // Switching builds mid-download: drop the current file, fetch the new one.
+                  void (async () => {
+                    await cancel(active.id);
+                    await actions.start(app.topicId, f.attachId);
+                  })();
+                  snackbar({ message: `Downloading ${abiFromFileName(f.name) ?? f.name} instead` });
+                } else {
+                  snackbar({ message: 'Grabby will pick this build next time too' });
+                }
+              }}
             />
           ))
         )}
@@ -474,9 +500,7 @@ function Preview({
       <Header
         name={topic.title}
         iconSrc={topic.iconUrl}
-        sub={
-          meta(topic.category, topic.mod && `mod ${topic.mod}`, topic.description) || 'From 4PDA'
-        }
+        sub={meta(topic.category, topic.description) || 'From 4PDA'}
         version={<VersionDelta to={topic.version} size="lg" highlight />}
       />
       <View style={styles.pad}>
@@ -536,5 +560,6 @@ const styles = StyleSheet.create((theme) => ({
   sub: { marginTop: 2, marginBottom: 6, fontFamily: theme.type.caption.fontFamily },
   row: { flexDirection: 'row', alignItems: 'center', gap: theme.space[2], flexWrap: 'wrap' },
   pad: { paddingHorizontal: theme.gutter },
+  installingBox: { gap: theme.space[2], minHeight: 48, justifyContent: 'center' },
   stack: { gap: theme.space[3] },
 }));

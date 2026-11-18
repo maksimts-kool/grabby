@@ -67,17 +67,19 @@ background checks, grouped into one `updates` notification.
 package name, the changelog spoiler and the APKs (`/forum/dl/post/<id>/<file>`, size after the
 link). Older builds in "Прошлые версии" spoilers are skipped. Many headers instead link
 "Скачать" to a later post (`view=findpost&p=…`); Grabby then fetches that post for the files.
-Some topics only keep their mods current: the header's official build is old while a
-"Модификации" spoiler lists newer `Версия: …` lines linking to later posts. When the newest mod
-is ahead of the header, Grabby follows it, uses that post's files and labels the build a mod (it
-is signed differently, so it may not install over the official app). The header's first picture
+When the header has a "Модификации" spoiler (`Версия: …` lines linking to later posts), Grabby
+always tracks the newest mod: it follows that post, uses its files and shows the variant
+("mod Unlocked"). Variants are signed differently, so once one is tracked, updates stay on it. Otherwise the header's own
+"Скачать" lines (outside spoilers) are followed, newest version first. Spoilers nest ("Прошлые
+версии" → "Версии 0.x"), so every enclosing spoiler title is checked. The header's first picture
 outside spoilers is the app icon, shown until the app is installed and has a launcher icon.
 All three shapes are covered by fixtures modelled on real pages (Nov 2026).
 
 **Downloads.** Rows live in SQLite; bytes move in a WorkManager job (foreground `dataSync`
 service with a progress notification, resumable with `Range`, Wi‑Fi-only constraint). Two run
 at once. A download that returns an HTML page instead of an APK means the 4PDA session is
-missing or expired. Finished files post a `ready` notification that deep-links to
+missing or expired. A `.zip` build ("apk в архиве", named with a version) is unpacked by
+the worker: the largest APK inside is kept and the archive deleted. RAR archives aren't supported. Finished files post a `ready` notification that deep-links to
 `grabby://install/<id>`.
 
 **Installing.** PackageInstaller sessions; Android always shows its own confirmation.

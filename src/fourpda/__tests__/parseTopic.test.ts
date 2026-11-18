@@ -132,6 +132,38 @@ describe('parseTopic — newer builds only as mods', () => {
   });
 });
 
+describe('parseTopic — long header with nested spoilers and variant download lines', () => {
+  const topic = parseTopic(fixture('topic-nested.html'), 555004);
+
+  it('takes the newest version among the download lines, not the first one', () => {
+    expect(topic.version).toBe('5.5.0');
+  });
+
+  it('ignores an APK in a nested old-versions spoiler', () => {
+    expect(topic.files).toEqual([]);
+  });
+
+  it('follows only the top-level "Скачать" lines, newest version first', () => {
+    expect(topic.downloadPostIds).toEqual([146200101, 146200102, 146200100]);
+  });
+
+  it('takes versioned .zip builds from a mod post ("apk в архиве"), not other archives', () => {
+    const post = parsePost(fixture('topic-nested.html'), 146200200);
+    expect(post.version).toBe('5.5.0');
+    expect(post.files.map((f) => f.name)).toEqual([
+      'SampleMaps+-Live-v5.5.0-Mod-armeabi-v7a.zip',
+      'SampleMaps+-Live-v5.5.0-Mod-arm64-v8a.zip',
+    ]);
+  });
+
+  it('lists the current mods by their variant name, skipping lines without a version', () => {
+    expect(topic.mods.map((m) => [m.version, m.postId, m.label])).toEqual([
+      ['5.5.0', 146200200, 'Unlocked'],
+      ['5.3.10', 146200201, 'PlusM'],
+    ]);
+  });
+});
+
 describe('parseTopic — failures', () => {
   it('recognises the login page', () => {
     const html =
@@ -164,10 +196,34 @@ describe('parseSize', () => {
 });
 
 describe('parseSearch', () => {
-  it('returns one hit per topic and skips jump links', () => {
+  it('reads one hit per topic block: title, description and forum, not page or jump links', () => {
     expect(parseSearch(fixture('search.html'))).toEqual([
-      { topicId: 555001, title: 'Sample Player', description: 'Музыкальный плеер с эквалайзером' },
-      { topicId: 555003, title: 'Sample Player Remote', description: null },
+      {
+        topicId: 555001,
+        title: 'Sample Player',
+        description: 'Музыкальный плеер с эквалайзером',
+        forum: 'Мультимедиа',
+      },
+      {
+        topicId: 555003,
+        title: 'Sample Player Remote',
+        description: null,
+        forum: 'Архив программ',
+      },
+    ]);
+  });
+
+  it('falls back to the posts layout without taking "открыть тему" as the title', () => {
+    const html =
+      '<div class="cat_name"><a href="https://4pda.to/forum/index.php?showtopic=719545&view=findpost&p=46361566">Sample Transit, Лучшее транспортное приложение</a></div>' +
+      '<div class="post_header"><span class="post_date">20.01.16 | <a href="https://4pda.to/forum/index.php?showtopic=719545">открыть тему</a></span></div>';
+    expect(parseSearch(html)).toEqual([
+      {
+        topicId: 719545,
+        title: 'Sample Transit',
+        description: 'Лучшее транспортное приложение',
+        forum: null,
+      },
     ]);
   });
 });

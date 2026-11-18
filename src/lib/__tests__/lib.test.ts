@@ -93,6 +93,16 @@ describe('abi', () => {
     );
   });
 
+  it('picks a zipped build for the phone when the post only has archives', () => {
+    const zips = [
+      { name: 'OsmAnd+-Live-v5.5.0-Mod-armeabi-v7a.zip' },
+      { name: 'OsmAnd+-Live-v5.5.0-Mod-arm64-v8a.zip' },
+    ];
+    expect(pickFile(zips, ['arm64-v8a', 'armeabi-v7a'])?.name).toBe(
+      'OsmAnd+-Live-v5.5.0-Mod-arm64-v8a.zip',
+    );
+  });
+
   it('remembers a build across versions', () => {
     expect(fileNamePattern('SamplePlayer_v4.12.1531_arm64-v8a.apk')).toBe(
       fileNamePattern('SamplePlayer_v4.13.1541_arm64-v8a.apk'),

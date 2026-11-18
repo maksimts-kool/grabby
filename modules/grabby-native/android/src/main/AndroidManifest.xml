@@ -6,6 +6,8 @@
   <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
     tools:ignore="QueryAllPackagesPermission" />
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <!-- "Uninstall from phone" opens Android's uninstall dialog (ACTION_DELETE, API 28+). -->
+  <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

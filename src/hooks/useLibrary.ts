@@ -6,7 +6,7 @@ import { db } from '@/db/client';
 import { apps, downloads, files, type App, type AppFile, type Download } from '@/db/schema';
 import { abiFromFileName, pickFile } from '@/lib/abi';
 import { formatSize } from '@/lib/format';
-import { useSetting } from '@/lib/settings';
+import { settings, useSetting } from '@/lib/settings';
 import { hasUpdate } from '@/lib/updates';
 import { deviceAbis } from '@/native';
 import { failureText } from '@/services/downloads';
@@ -27,7 +27,9 @@ export function rowStatus(item: LibraryItem): { status: AppRowStatus; note?: str
   if (d?.status === 'downloading') return { status: 'downloading' };
   if (d?.status === 'queued') return { status: 'queued' };
   if (d?.status === 'ready') return { status: 'ready' };
-  if (d?.status === 'failed') return { status: 'failed', note: failureText(d.error) };
+  if (d?.status === 'failed') {
+    return { status: 'failed', note: failureText(d.error, settings.get('signedIn')) };
+  }
   if (item.update) return { status: 'update' };
   return { status: 'latest' };
 }
@@ -59,7 +61,11 @@ export function useLibrary() {
       file: pickFile(own, abis, { preferredAbi, rememberedPattern: app.filePattern }),
       download:
         downloadsQuery.data.find(
-          (d) => d.topicId === app.topicId && d.version === app.latestVersion,
+          (d) =>
+            d.topicId === app.topicId &&
+            d.version === app.latestVersion &&
+            // A leftover try for the version already installed isn't this app's state.
+            d.version !== app.installedVersion,
         ) ?? null,
       update: hasUpdate(app, betas),
     };
@@ -114,7 +120,9 @@ export function useApp(topicId: number) {
         download:
           downloadsQuery.data.find(
             (d) =>
-              d.version === app.latestVersion && !['cancelled', 'installed'].includes(d.status),
+              d.version === app.latestVersion &&
+              d.version !== app.installedVersion &&
+              !['cancelled', 'installed'].includes(d.status),
           ) ?? null,
         update: hasUpdate(app, betas),
       }

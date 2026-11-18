@@ -75,7 +75,12 @@ export type TopicResult =
  */
 export async function fetchTopic(
   topicId: number,
-  options: { lastModified?: string | null; signal?: AbortSignal } = {},
+  options: {
+    lastModified?: string | null;
+    signal?: AbortSignal;
+    /** The mod variant already tracked ("Unlocked"): updates stay on it. */
+    mod?: string | null;
+  } = {},
 ): Promise<TopicResult> {
   const page = await getPage(topicUrl(topicId), {
     ifModifiedSince: options.lastModified,
@@ -116,13 +121,30 @@ export async function fetchTopic(
     }
   }
 
-  // Some topics only keep their mods current: the header's official build is months old while
-  // "Модификации" links to newer posts. Follow the newest mod when it's ahead of the header.
-  const mod = topic.mods.reduce<(typeof topic.mods)[number] | null>(
-    (best, m) => (!best || compareVersions(m.version, best.version) > 0 ? m : best),
-    null,
-  );
-  if (mod && (!topic.version || compareVersions(mod.version, topic.version) > 0)) {
+  // When the header lists mods ("Модификации"), Grabby tracks one: some topics only keep their
+  // mods current, and where both are current the mod is the build people want. Variants are
+  // signed differently (Unlocked can't be updated with PlusM), so once one is tracked, updates
+  // stay on it; the newest of any variant is only picked the first time.
+  const newest = (mods: typeof topic.mods) =>
+    mods.reduce<(typeof mods)[number] | null>(
+      (best, m) => (!best || compareVersions(m.version, best.version) > 0 ? m : best),
+      null,
+    );
+  const sameVariant = (label: string | null) =>
+    !!label && !!options.mod && label.toLowerCase() === options.mod.toLowerCase();
+  const mod = options.mod
+    ? newest(topic.mods.filter((m) => sameVariant(m.label)))
+    : newest(topic.mods);
+  if (options.mod && !mod && topic.mods.length) {
+    // The tracked variant is gone from the header. Another variant (or the official build)
+    // can't update it, so report nothing found rather than switch silently.
+    return {
+      status: 'ok',
+      topic: { ...topic, version: null, files: [], mod: options.mod },
+      lastModified: page.lastModified,
+    };
+  }
+  if (mod) {
     try {
       const linked = await getPage(
         `${ORIGIN}/forum/index.php?showtopic=${topicId}&view=findpost&p=${mod.postId}`,

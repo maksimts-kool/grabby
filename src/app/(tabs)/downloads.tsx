@@ -20,7 +20,7 @@ import {
 import { db } from '@/db/client';
 import { apps, downloads, type Download } from '@/db/schema';
 import { useCheck } from '@/hooks/useCheck';
-import { useRowActions } from '@/hooks/useRowActions';
+import { useInstalling, useRowActions } from '@/hooks/useRowActions';
 import { useSystemState } from '@/hooks/useSystemState';
 import { formatSize, formatSpeed, formatTransferred, meta } from '@/lib/format';
 import { useSetting } from '@/lib/settings';
@@ -30,6 +30,7 @@ import {
   deleteInstalledApks,
   failureText,
   installedApks,
+  needsSignIn,
   onInstallResult,
   pause,
   pauseAll,
@@ -45,8 +46,10 @@ export default function DownloadsScreen() {
   const system = useSystemState(5000);
   const check = useCheck();
   const actions = useRowActions();
+  const installing = useInstalling();
   const snackbar = useSnackbar();
   const [wifiOnly] = useSetting('wifiOnly');
+  const [signedIn] = useSetting('signedIn');
   const rows = useLiveQuery(
     db
       .select()
@@ -147,6 +150,7 @@ export default function DownloadsScreen() {
             {...common}
             status="ready"
             actionDisabled={!system.installAllowed}
+            installing={installing.includes(d.id)}
             onAction={() => void actions.installById(d.id)}
           />
         );
@@ -156,9 +160,9 @@ export default function DownloadsScreen() {
           <AppRow
             {...common}
             status="failed"
-            note={failureText(d.error)}
+            note={failureText(d.error, signedIn)}
             trailing={
-              d.error === 'sign-in' ? (
+              needsSignIn(d.error, signedIn) ? (
                 <Button size="sm" variant="secondary" onPress={() => router.push('/sign-in')}>
                   Sign in
                 </Button>
@@ -184,6 +188,8 @@ export default function DownloadsScreen() {
             icon="download"
             title="Nothing downloading"
             secondary={check.checking ? 'Checking…' : 'Check for updates'}
+            secondaryIcon="update"
+            secondarySpinning={check.checking}
             onSecondary={() => void check.run()}
           >
             Updates you start show up here. Finished files wait here until you install them.

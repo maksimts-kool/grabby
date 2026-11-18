@@ -1,4 +1,4 @@
-import { lt } from 'drizzle-orm';
+import { gt, lt } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { activity, type ActivityEntry } from '@/db/schema';
@@ -46,6 +46,11 @@ export async function pruneActivity(now = Date.now()) {
   await db.delete(activity).where(lt(activity.at, now - KEEP_MS));
 }
 
+/**
+ * A plain `DELETE FROM activity` is SQLite's truncate optimisation, which skips the change
+ * notifications live queries listen to: the screen kept showing cleared rows until a restart.
+ * Any WHERE clause turns it back into a normal, observed delete.
+ */
 export async function clearActivity() {
-  await db.delete(activity);
+  await db.delete(activity).where(gt(activity.id, 0));
 }

@@ -44,7 +44,7 @@ const emit = (p: CheckProgress | null) => listeners.forEach((l) => l(p));
 /** "Check the topic again" on one app: a full fetch, ignoring If-Modified-Since. */
 export async function refreshTopic(topicId: number) {
   const [app] = await db.select().from(apps).where(eq(apps.topicId, topicId));
-  const result = await fetchTopic(topicId);
+  const result = await fetchTopic(topicId, { mod: app?.latestMod });
   if (result.status === 'ok') await saveTopic(result.topic, result.lastModified, app ?? null);
   await refreshInstalled([topicId]);
 }
@@ -89,7 +89,10 @@ async function run(reason: CheckReason): Promise<CheckResult> {
     const app = rows[i];
     emit({ done: i, total: rows.length });
     try {
-      const result = await fetchTopic(app.topicId, { lastModified: app.lastModified });
+      const result = await fetchTopic(app.topicId, {
+        lastModified: app.lastModified,
+        mod: app.latestMod,
+      });
       if (result.status === 'not-modified') {
         await db
           .update(apps)

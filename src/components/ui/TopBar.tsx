@@ -10,6 +10,8 @@ export interface TopBarAction {
   icon: IconName;
   label: string;
   badge?: boolean;
+  /** The icon turns while its job runs (Check for updates). */
+  spinning?: boolean;
   onPress?: () => void;
   testID?: string;
 }
@@ -21,7 +23,7 @@ export interface TopBarProps {
   /** Large title on the four tab roots; small bar with a back arrow on pushed screens. */
   large?: boolean;
   back?: boolean;
-  /** At most two, plain. */
+  /** At most three, plain. */
   actions?: TopBarAction[];
 }
 
@@ -34,12 +36,14 @@ export function TopBar({ title, subtitle, large, back, actions = [] }: TopBarPro
       <Text variant="headline" numberOfLines={1} style={[styles.title, back && styles.titleBack]}>
         {large ? '' : title}
       </Text>
-      {actions.slice(0, 2).map((a) => (
+      {actions.slice(0, 3).map((a) => (
         <IconButton
           key={a.label}
           icon={a.icon}
           label={a.label}
           badge={a.badge}
+          spinning={a.spinning}
+          disabled={a.spinning}
           onPress={a.onPress}
           testID={a.testID}
         />

@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Synthetic search results page. Shape is a best guess: 4PDA only lets members search,
-     so replace this with a saved real results page when one is available. -->
+<!-- Synthetic fixture modelled on a real signed-in 4PDA search page (Nov 2026 markup),
+     requested with result=topics. Names and users are made up. Each result is a [data-topic]
+     block: title link plus page links, then topic_desc spans (description + forum, author)
+     and getnewpost / getlastpost jumps. -->
 <html><head><meta charset="windows-1251" /><title>Поиск - 4PDA</title></head>
 <body>
-<div class="borderwrap">
-  <div class="topic-row"><a href="https://4pda.to/forum/index.php?showtopic=555001">Sample Player</a> <a href="https://4pda.to/forum/index.php?showtopic=555001&amp;view=getnewpost">»</a><div class="desc">Музыкальный плеер с эквалайзером</div></div>
-  <div class="topic-row"><a href="https://4pda.to/forum/index.php?showtopic=555003">Sample Player Remote</a> <a href="https://4pda.to/forum/index.php?showtopic=555003&amp;view=getlastpost">2</a></div>
-  <div class="topic-row"><a href="https://4pda.to/forum/index.php?showtopic=555001&amp;st=20">2</a></div>
-</div>
+<form action="https://4pda.to/forum/index.php" method="post"><label for="src_top"><input type="radio" name="source" value="top" checked="checked" />&nbsp;Только в заголовках тем</label></form>
+<div data-topic="555001"><div class="topic_title"><span class="modifier"><font color="red">+</font></span><a href="https://4pda.to/forum/index.php?showtopic=555001">Sample Player</a> &nbsp;<a onclick="return tpg(555001,103);" href="#">*</a>&nbsp;<a href="https://4pda.to/forum/index.php?showtopic=555001&amp;st=0">1</a>&nbsp;<a href="https://4pda.to/forum/index.php?showtopic=555001&amp;st=20">2</a>&nbsp;&#8230;&nbsp;<a href="https://4pda.to/forum/index.php?showtopic=555001&amp;st=100">(6)&raquo;</a></div><div class="topic_body"><span class="topic_desc">Музыкальный плеер с эквалайзером<br />форум: <a href="https://4pda.to/forum/index.php?showforum=269">Мультимедиа</a><br /></span><span class="topic_desc">автор: <a href="https://4pda.to/forum/index.php?showuser=1">Sample_User</a></span><br /><a href="https://4pda.to/forum/index.php?showtopic=555001&amp;view=getnewpost">Новые</a> <a href="https://4pda.to/forum/index.php?showtopic=555001&amp;view=getlastpost">Послед.:</a> <a href="https://4pda.to/forum/index.php?showuser=2">Other_User</a> 13.11.26, 15:09</div></div>
+<div data-topic="555003"><div class="topic_title"><span class="modifier">X</span><a href="https://4pda.to/forum/index.php?showtopic=555003">Sample Player Remote</a> &nbsp;<a onclick="return tpg(555003,12);" href="#">*</a></div><div class="topic_body"><span class="topic_desc">форум: <a href="https://4pda.to/forum/index.php?showforum=1109">Архив программ</a><br /></span><span class="topic_desc">автор: <a href="https://4pda.to/forum/index.php?showuser=3">Third_User</a></span><br /><a href="https://4pda.to/forum/index.php?showtopic=555003&amp;view=getlastpost">Послед.:</a> 01.02.25, 10:00</div></div>
 </body></html>

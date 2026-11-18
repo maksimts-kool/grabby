@@ -25,6 +25,9 @@ export interface EmptyStateProps {
   actionIcon?: IconName;
   onAction?: () => void;
   secondary?: string;
+  secondaryIcon?: IconName;
+  /** The secondary button's icon turns while its job runs ("Checking…"). */
+  secondarySpinning?: boolean;
   onSecondary?: () => void;
 }
 
@@ -71,7 +74,13 @@ export function EmptyState(props: EmptyStateProps) {
             </Button>
           ) : null}
           {props.secondary ? (
-            <Button variant="ghost" onPress={props.onSecondary} testID="empty-secondary">
+            <Button
+              variant="ghost"
+              icon={props.secondaryIcon}
+              spinning={props.secondarySpinning}
+              onPress={props.onSecondary}
+              testID="empty-secondary"
+            >
               {props.secondary}
             </Button>
           ) : null}

@@ -11,6 +11,28 @@ export function topicUrl(topicId: number): string {
 
 const HOSTS = /^(?:www\.)?4pda\.(?:to|ru|ws)$/i;
 
+/** 4PDA's own account pages: sign in, register, recover the password, confirm an email. */
+const AUTH_ACT = /^(auth|login|reg|register|lostpass|validate|activate)$/i;
+
+/**
+ * Where the sign-in web view may go. 4PDA's account pages load in place; links to other sites
+ * open in the browser; any other 4PDA page (the forum, where 4PDA sends you after signing in)
+ * is blocked, and the screen checks the session instead.
+ */
+export function signInRoute(raw: string): 'allow' | 'block' | 'external' {
+  if (/^(about:blank|data:)/i.test(raw)) return 'allow';
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return 'block';
+  }
+  if (!/^https?:$/.test(url.protocol)) return 'block';
+  if (!HOSTS.test(url.hostname)) return 'external';
+  const act = url.searchParams.get('act');
+  return act && AUTH_ACT.test(act) ? 'allow' : 'block';
+}
+
 /**
  * Reads a topic id from anything the user might paste: a full topic link, a link to one post
  * (`…showtopic=123&view=findpost&p=456` — stripped to the topic), the mobile `?t=` form, or a
@@ -52,5 +74,5 @@ export function encodeCp1251(text: string): string {
  * forum's own search box sends. 4PDA answers guests with 403, so this needs a session.
  */
 export function searchUrl(query: string): string {
-  return `${ORIGIN}/forum/index.php?act=search&source=top&forums=212&subforums=1&query=${encodeCp1251(query)}`;
+  return `${ORIGIN}/forum/index.php?act=search&source=top&forums=212&subforums=1&result=topics&query=${encodeCp1251(query)}`;
 }

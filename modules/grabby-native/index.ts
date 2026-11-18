@@ -75,6 +75,7 @@ declare class GrabbyNativeModule extends NativeModule<GrabbyNativeEvents> {
   getAppIcon(packageName: string, size: number): Promise<string | null>;
   getApkInfo(path: string): Promise<InstalledPackage | null>;
   openApp(packageName: string): boolean;
+  uninstallApp(packageName: string): boolean;
   enqueueDownload(request: DownloadRequest): string;
   pauseDownload(id: string): void;
   cancelDownload(id: string, fileName: string): void;

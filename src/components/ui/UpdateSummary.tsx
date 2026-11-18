@@ -1,7 +1,6 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { meta } from '@/lib/format';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
@@ -39,12 +38,21 @@ export function UpdateSummary({
       icon="update"
       label="Check now"
       variant="tonal"
-      loading={checking}
+      spinning={checking}
       disabled={checking}
       onPress={onCheck}
       testID="check-now"
     />
   );
+  // "checked 5 min ago" gets its own line at the foot of the card, not squeezed beside the size.
+  const footer = checked ? (
+    <View style={styles.footer}>
+      <Icon name="clock" size={16} color="inkMuted" />
+      <Text variant="caption" color="inkMuted">
+        {checked.charAt(0).toUpperCase() + checked.slice(1)}
+      </Text>
+    </View>
+  ) : null;
   if (!count) {
     return (
       <View style={styles.card}>
@@ -54,15 +62,15 @@ export function UpdateSummary({
               <Icon name="check" size={28} color="limeInk" />
               <Text variant="title">All up to date</Text>
             </View>
-            <Text variant="label" color="inkMuted" style={styles.sub}>
-              {meta(
-                tracked ? `${tracked} ${tracked === 1 ? 'app' : 'apps'} tracked` : null,
-                checked,
-              )}
-            </Text>
+            {tracked ? (
+              <Text variant="label" color="inkMuted" style={styles.sub}>
+                {`${tracked} ${tracked === 1 ? 'app' : 'apps'} tracked`}
+              </Text>
+            ) : null}
           </View>
           {check}
         </View>
+        {footer}
       </View>
     );
   }
@@ -76,15 +84,18 @@ export function UpdateSummary({
             </Text>
             {count === 1 ? ' update' : ' updates'}
           </Text>
-          <Text variant="label" color="inkMuted" style={styles.sub}>
-            {meta(size, checked)}
-          </Text>
+          {size ? (
+            <Text variant="label" color="inkMuted" style={styles.sub}>
+              {size}
+            </Text>
+          ) : null}
         </View>
         {check}
       </View>
       <Button icon="download" block loading={busy} onPress={onUpdateAll} testID="update-all">
         Update all
       </Button>
+      {footer}
     </View>
   );
 }
@@ -106,4 +117,5 @@ const styles = StyleSheet.create((theme) => ({
   text: { flex: 1, minWidth: 0 },
   clear: { flexDirection: 'row', alignItems: 'center', gap: theme.space[2] },
   sub: { marginTop: 2, fontFamily: theme.type.caption.fontFamily },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: theme.space[2] },
 }));

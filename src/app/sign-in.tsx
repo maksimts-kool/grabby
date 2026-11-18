@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -5,7 +6,8 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { WebView } from 'react-native-webview';
 
 import { Banner, Screen, Text, TopBar, useSnackbar } from '@/components/ui';
-import { LOGIN_URL } from '@/fourpda/urls';
+import { LOGIN_URL, signInRoute } from '@/fourpda/urls';
+import { retrySignInFailures } from '@/services/downloads';
 import { isSignedIn } from '@/services/session';
 
 /**
@@ -23,7 +25,12 @@ export default function SignInScreen() {
     if (done) return;
     if (await isSignedIn()) {
       setDone(true);
-      snackbar({ message: 'Signed in to 4PDA' });
+      const retried = await retrySignInFailures();
+      snackbar({
+        message: retried
+          ? `Signed in to 4PDA, retrying ${retried} ${retried === 1 ? 'download' : 'downloads'}`
+          : 'Signed in to 4PDA',
+      });
       if (router.canGoBack()) router.back();
     }
   };
@@ -52,6 +59,14 @@ export default function SignInScreen() {
             thirdPartyCookiesEnabled
             domStorageEnabled
             setSupportMultipleWindows={false}
+            // Only 4PDA's account pages load here; other sites open in the browser, and the
+            // forum itself (where 4PDA sends you after signing in) ends the screen instead.
+            onShouldStartLoadWithRequest={(req) => {
+              const route = signInRoute(req.url);
+              if (route === 'external') void Linking.openURL(req.url);
+              if (route === 'block') void checkSession();
+              return route === 'allow';
+            }}
             onLoadStart={() => setLoading(true)}
             onLoadEnd={() => {
               setLoading(false);

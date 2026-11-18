@@ -39,10 +39,10 @@ export class InstallPermissionError extends Error {
 }
 
 /** The sentence a failure shows in its row: what happened and what fixes it. */
-export function failureText(error: string | null): string {
+export function failureText(error: string | null, signedIn = false): string {
   switch (error as DownloadError | null) {
     case 'sign-in':
-      return 'Sign in to 4PDA to get this file';
+      return signedIn ? 'Download failed before you signed in' : 'Sign in to 4PDA to get this file';
     case 'gone':
       return 'File is gone from the topic';
     case 'storage':
@@ -71,11 +71,11 @@ export async function queueUpdate(topicId: number, attachId?: number): Promise<n
     .where(
       and(
         eq(downloads.topicId, topicId),
-        inArray(downloads.status, [...ACTIVE, 'paused', 'ready']),
+        inArray(downloads.status, [...ACTIVE, 'paused', 'ready', 'failed']),
       ),
     );
   const sameVersion = existing.find((d) => d.version === app.latestVersion);
-  if (sameVersion) {
+  if (sameVersion && sameVersion.status !== 'failed') {
     if (sameVersion.status === 'paused') await resume(sameVersion.id);
     return sameVersion.id;
   }
@@ -94,7 +94,7 @@ export async function queueUpdate(topicId: number, attachId?: number): Promise<n
   if (!file) throw new NoFileError();
   if (attachId) await rememberFile(topicId, file.name);
 
-  // An older version still waiting is replaced by the new one.
+  // An older version still waiting, or an earlier failed try, is replaced by the new one.
   for (const old of existing) await cancel(old.id);
 
   const now = Date.now();
@@ -213,6 +213,24 @@ export async function resumeAll() {
 
 export const retry = resume;
 
+/** After signing in: downloads that failed only because Grabby was a guest start again. */
+export async function retrySignInFailures() {
+  const rows = await db
+    .select()
+    .from(downloads)
+    .where(and(eq(downloads.status, 'failed'), eq(downloads.error, 'sign-in')));
+  for (const d of rows) await resume(d.id);
+  return rows.length;
+}
+
+/**
+ * A guest-time failure still says "sign in" after signing in; then it's just worth a retry.
+ * (A real expiry is caught again on the next attempt and flips the session back.)
+ */
+export function needsSignIn(error: string | null, signedIn: boolean) {
+  return error === 'sign-in' && !signedIn;
+}
+
 export async function cancel(id: number) {
   const [d] = await db.select().from(downloads).where(eq(downloads.id, id));
   if (!d) return;
@@ -225,12 +243,48 @@ export async function cancel(id: number) {
   await pump();
 }
 
+// Installs in progress: from the tap (copying a large APK into the session takes seconds)
+// until Android reports success, failure or a cancelled dialog. Buttons show loading meanwhile.
+let installing: readonly number[] = [];
+const installingListeners = new Set<() => void>();
+const installTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+function setInstalling(id: number, on: boolean) {
+  if (on === installing.includes(id)) return;
+  installing = on ? [...installing, id] : installing.filter((i) => i !== id);
+  clearTimeout(installTimers.get(id));
+  installTimers.delete(id);
+  // Android normally always answers; never leave a button spinning if it doesn't.
+  if (on)
+    installTimers.set(
+      id,
+      setTimeout(() => setInstalling(id, false), 3 * 60_000),
+    );
+  installingListeners.forEach((l) => l());
+}
+
+export function subscribeInstalling(listener: () => void) {
+  installingListeners.add(listener);
+  return () => {
+    installingListeners.delete(listener);
+  };
+}
+
+/** Download ids being installed right now. The array is replaced on change (a stable snapshot). */
+export const getInstalling = () => installing;
+
 /** Opens Android's installer for a finished file. Android always asks the user to confirm. */
 export async function install(id: number) {
   const [d] = await db.select().from(downloads).where(eq(downloads.id, id));
   if (!d?.path) throw new Error('Not downloaded');
   if (!native.canRequestPackageInstalls()) throw new InstallPermissionError();
-  await native.installApk(d.path, String(id));
+  setInstalling(id, true);
+  try {
+    await native.installApk(d.path, String(id));
+  } catch (e) {
+    setInstalling(id, false);
+    throw e;
+  }
 }
 
 /** APKs of versions already installed: what "Delete … installed APKs" can free. */
@@ -369,19 +423,32 @@ async function onInstallStatus(e: {
 }) {
   const id = Number(e.downloadId);
   installListeners.forEach((l) => l({ downloadId: id, status: e.status, message: e.message }));
-  if (e.status !== 'success') return;
-  const [d] = await db.select().from(downloads).where(eq(downloads.id, id));
-  if (!d) return;
-  let text: string | null = null;
-  if (settings.get('deleteApkAfterInstall') && d.path && native.deleteApk(d.path)) {
-    text = `APK deleted, ${formatSize(d.bytesTotal)} freed`;
-    await db.update(downloads).set({ path: null }).where(eq(downloads.id, id));
+  if (e.status === 'pending-user') return;
+  if (e.status !== 'success') {
+    setInstalling(id, false);
+    return;
   }
+  const [d] = await db.select().from(downloads).where(eq(downloads.id, id));
+  if (!d) {
+    setInstalling(id, false);
+    return;
+  }
+  // Installed version first, then retire the download: the other order left a moment where
+  // the app looked out of date with no download, and flashed "Download" before "Up to date".
+  await refreshInstalled([d.topicId]);
+  let text: string | null = null;
+  const deleted = settings.get('deleteApkAfterInstall') && !!d.path && native.deleteApk(d.path);
+  if (deleted) text = `APK deleted, ${formatSize(d.bytesTotal)} freed`;
   await db
     .update(downloads)
-    .set({ status: 'installed', updatedAt: Date.now() })
+    .set({ status: 'installed', ...(deleted ? { path: null } : {}), updatedAt: Date.now() })
     .where(eq(downloads.id, id));
-  await refreshInstalled([d.topicId]);
+  // Earlier failed tries for this app are moot now; left alone they'd resurface as its state.
+  await db
+    .update(downloads)
+    .set({ status: 'cancelled', updatedAt: Date.now() })
+    .where(and(eq(downloads.topicId, d.topicId), eq(downloads.status, 'failed')));
+  setInstalling(id, false);
   const title = await appTitle(d.topicId);
   await logActivity({
     kind: 'installed',
@@ -391,6 +458,20 @@ async function onInstallStatus(e: {
     text,
     topicId: d.topicId,
   });
+}
+
+/** Failed tries for a version that's installed now (by Grabby or another way) are retired. */
+async function retireStaleFailures() {
+  const failed = await db.select().from(downloads).where(eq(downloads.status, 'failed'));
+  for (const d of failed) {
+    const [app] = await db.select().from(apps).where(eq(apps.topicId, d.topicId));
+    if (app?.installedVersion && app.installedVersion === d.version) {
+      await db
+        .update(downloads)
+        .set({ status: 'cancelled', updatedAt: Date.now() })
+        .where(eq(downloads.id, d.id));
+    }
+  }
 }
 
 let subscribed = false;
@@ -404,6 +485,7 @@ export async function startDownloadService() {
     native.addListener('onDownloadPaused', (e) => void onPaused(e));
     native.addListener('onInstallStatus', (e) => void onInstallStatus(e));
   }
+  await retireStaleFailures();
   await reconcile();
   await pump();
 }

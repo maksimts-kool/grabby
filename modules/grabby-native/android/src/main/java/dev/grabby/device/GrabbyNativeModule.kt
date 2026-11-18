@@ -124,6 +124,18 @@ class GrabbyNativeModule : Module() {
       }
     }
 
+    /** Android's own uninstall confirmation for an installed app. False when it can't open. */
+    Function("uninstallApp") { packageName: String ->
+      val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      try {
+        context.startActivity(intent)
+        true
+      } catch (e: Exception) {
+        false
+      }
+    }
+
     Function("openApp") { packageName: String ->
       val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return@Function false
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
