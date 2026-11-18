@@ -1,0 +1,23 @@
+# Track an app from a pasted topic link (needs network; uses a public 4PDA topic).
+# Run after onboarding.yaml. Override the topic with: maestro test -e TOPIC=<id> …
+appId: dev.grabby.app
+env:
+  TOPIC: '1129777'
+---
+- launchApp
+- tapOn:
+    id: 'add-app'
+- tapOn:
+    id: 'search-input'
+- inputText: 'https://4pda.to/forum/index.php?showtopic=${TOPIC}'
+- extendedWaitUntil:
+    visible:
+      id: 'track'
+    timeout: 20000
+- tapOn:
+    id: 'track'
+- assertVisible: 'Tracking .*'
+- back
+- back
+- assertVisible:
+    id: 'app-row-${TOPIC}'

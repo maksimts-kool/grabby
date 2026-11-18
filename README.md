@@ -1,56 +1,112 @@
-# Welcome to your Expo app 👋
+# Grabby
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A personal Android app that tracks the apps you pick on [4PDA](https://4pda.to), notices when a
+topic posts a new APK, downloads the right file for your phone and hands it to the installer.
+Fast, factual and quiet — and it never makes you guess which version you're on.
 
-## Get started
+Grabby is independent and not made by 4PDA. It reads public topic pages the way a browser
+would, gently: one request per tracked topic per check, `If-Modified-Since`, an honest
+User-Agent.
 
-1. Install dependencies
+The visual spec is the **Grabby design system** (tokens, components, screens and states). The
+app re-implements those components with the same names, props and tokens; `design/tokens.json`
+is a copy of the system's tokens and the source of `src/theme/tokens.ts`.
 
-   ```bash
-   npm install
-   ```
+## Getting started
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Grabby needs a development build (it has its own native module), not Expo Go.
 
 ```bash
-npm run reset-project
+bun install
+bun run android        # prebuild + build + install a debug build on a device/emulator
+bun start              # Metro for the dev build
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Release APKs come from EAS (`eas init` once to link a project, then):
 
-### Other setup steps
+```bash
+bun run build:apk      # preview profile → installable APK
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Scripts
 
-## Learn more
+| script                            | does                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `bun run typecheck`               | `tsc --noEmit` (strict)                                                   |
+| `bun run lint`                    | ESLint with `eslint-config-expo` + Prettier compatibility, zero warnings  |
+| `bun run format` / `format:check` | Prettier                                                                  |
+| `bun run test`                    | Jest (`jest-expo`) unit tests — parser, versions, ABI picking, formatting |
+| `bun run test:e2e`                | Maestro flows in `.maestro/` against an installed build                   |
+| `bun run theme` / `theme:check`   | regenerate / verify `src/theme/tokens.ts` from `design/tokens.json`       |
+| `bun run db:generate`             | Drizzle migration after changing `src/db/schema.ts`                       |
 
-To learn more about developing your project with Expo, look at the following resources:
+CI (`.github/workflows/ci.yml`) runs the checks and compiles the Kotlin module.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## How it fits together
 
-## Join the community
+```
+index.ts                 registers the Unistyles theme and the background task, then expo-router
+src/app/                 routes: (tabs)/ Apps · Downloads · Activity · Settings, add, app/[topicId],
+                         onboarding, scan, sign-in, install/[id] (target of the "ready" notification)
+src/components/ui/       the design-system components in React Native + Unistyles
+src/theme/               tokens.ts (generated), unistyles.ts (themes, dark first), icons.ts (path strings)
+src/fourpda/             fetch + windows-1251 decode + parser for topic pages, with fixtures and tests
+src/db/                  expo-sqlite + Drizzle schema: apps, files, downloads, activity, suggestions
+src/services/            checker (background + manual), download queue, notifications, session, phone scan
+src/native/              typed wrapper over the Kotlin module, safe when it's missing (tests)
+modules/grabby-native/   Kotlin: PackageManager, WorkManager downloads, PackageInstaller, cookies, settings
+drizzle/                 generated SQL migrations (bundled as strings)
+```
 
-Join our community of developers creating universal apps.
+**Checking.** `expo-background-task` (WorkManager) runs `checkAll('background')` on the interval
+from Settings (1 h – daily; Android decides the exact time). Each tracked topic is fetched with
+`If-Modified-Since`; changed pages are parsed, new versions logged to Activity and, for
+background checks, grouped into one `updates` notification.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Parsing 4PDA.** Pages are windows-1251. The first post holds the version (`Версия:`), the
+package name, the changelog spoiler and the APKs (`/forum/dl/post/<id>/<file>`, size after the
+link). Older builds in "Прошлые версии" spoilers are skipped. Many headers instead link
+"Скачать" to a later post (`view=findpost&p=…`); Grabby then fetches that post for the files.
+Both shapes are covered by fixtures modelled on real pages (Nov 2026).
+
+**Downloads.** Rows live in SQLite; bytes move in a WorkManager job (foreground `dataSync`
+service with a progress notification, resumable with `Range`, Wi‑Fi-only constraint). Two run
+at once. A download that returns an HTML page instead of an APK means the 4PDA session is
+missing or expired. Finished files post a `ready` notification that deep-links to
+`grabby://install/<id>`.
+
+**Installing.** PackageInstaller sessions; Android always shows its own confirmation.
+`REQUEST_INSTALL_PACKAGES` and `QUERY_ALL_PACKAGES` are declared — fine for a sideloaded personal
+app, not for Play.
+
+**Signing in.** 4PDA's own login page in a WebView. The session cookie stays in Android's cookie
+jar, shared with `fetch` and the download worker; the password is never seen or stored.
+
+## Stack
+
+Expo SDK 58 (React Native 0.88, React 19.3, New Architecture) · TypeScript strict + React
+Compiler · expo-router (typed routes) · Unistyles 3 · FlashList v2 · Reanimated 4 ·
+react-native-svg · Onest + JetBrains Mono · @gorhom/bottom-sheet · expo-sqlite + Drizzle
+(live queries) · react-native-mmkv · TanStack Query · zod 4 · node-html-parser + windows-1251 ·
+react-native-webview · a local Kotlin Expo module · expo-notifications / background-task /
+file-system / device · EAS Build + Update · Jest + Maestro · bun.
+
+Deliberate departures from the original stack list:
+
+- **No i18n.** UI copy is English only, inline in the components.
+- **No `@react-native-cookies/cookies`.** Its last release (2022) uses `jcenter()`, which
+  Gradle 9 removed, so it can't build on SDK 58. The two calls Grabby needs (read the 4PDA
+  cookies, clear them on sign-out) live in the Kotlin module via `CookieManager`.
+- **`lint` runs ESLint directly.** `expo lint` on SDK 58 exited 0 without reporting a planted
+  warning, so it can't gate CI. Same `eslint-config-expo` rules. ESLint is pinned to 9 because
+  `eslint-plugin-react` doesn't support ESLint 10 yet.
+
+## Not verified yet
+
+- Nothing has run on a device or emulator; the Kotlin module compiles, but downloads,
+  installs, notifications and background checks are untested end to end.
+- **Search** (Add app, phone scan) is members-only on 4PDA, so the results parser is written
+  against a guessed page shape. Save a real signed-in results page into
+  `src/fourpda/__fixtures__/search.html` and adjust `parseSearch` if needed.
+- Guest downloads from `/forum/dl/post/…` return 404 HTML, so in practice downloads need a
+  signed-in session.

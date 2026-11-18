@@ -1,0 +1,28 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+
+  <!-- Grabby is a sideloaded personal app: it needs to see every installed package
+       to compare versions against 4PDA topics (Android 11+ package visibility). -->
+  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+    tools:ignore="QueryAllPackagesPermission" />
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <!-- WorkManager runs long downloads as a foreground service of type dataSync. -->
+    <service
+      android:name="androidx.work.impl.foreground.SystemForegroundService"
+      android:foregroundServiceType="dataSync"
+      tools:node="merge" />
+
+    <receiver
+      android:name="dev.grabby.device.InstallResultReceiver"
+      android:exported="false" />
+
+    <receiver
+      android:name="dev.grabby.device.DownloadActionReceiver"
+      android:exported="false" />
+  </application>
+</manifest>

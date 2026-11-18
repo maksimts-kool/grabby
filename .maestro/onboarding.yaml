@@ -1,0 +1,12 @@
+# First run: onboarding works with nothing granted and lands on the empty library.
+appId: dev.grabby.app
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Your 4PDA apps, always on the latest build'
+- assertVisible: 'Install unknown apps'
+- assertVisible: 'Grabby is an independent app, not made by 4PDA.'
+- tapOn:
+    id: 'continue'
+- assertVisible: 'No apps yet'
+- assertVisible: 'Scan this phone'
