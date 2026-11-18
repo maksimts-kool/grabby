@@ -90,8 +90,6 @@ export default function LibraryScreen() {
             action="Add app"
             actionIcon="plus"
             onAction={() => router.push('/add')}
-            secondary="Scan this phone"
-            onSecondary={() => router.push('/scan')}
           >
             Add apps from 4PDA topics and Grabby will tell you when a new version is posted.
           </EmptyState>
@@ -107,7 +105,7 @@ export default function LibraryScreen() {
       check.lastResult?.failed.some((f) => f.code === 'network'));
   const subtitle = firstCheck
     ? `Checking ${lib.items.length} topics…`
-    : `${lib.items.length} tracked · from 4PDA`;
+    : `${lib.items.length} tracked from 4PDA`;
 
   const row = (item: LibraryItem) => {
     const { status, note } = rowStatus(item);

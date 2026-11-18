@@ -136,6 +136,6 @@ describe('format', () => {
   it('eta and meta', () => {
     expect(formatEta(5)).toBe('5 s left');
     expect(formatEta(130)).toBe('3 min left');
-    expect(meta('18 MB', null, 'checked 12 min ago', '')).toBe('18 MB · checked 12 min ago');
+    expect(meta('18 MB', null, 'checked 12 min ago', '')).toBe('18 MB, checked 12 min ago');
   });
 });

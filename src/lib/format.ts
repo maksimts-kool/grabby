@@ -76,7 +76,7 @@ export function plural(count: number, one: string, other: string): string {
   return `${count} ${count === 1 ? one : other}`;
 }
 
-/** Joins the truthy parts with " · ". */
+/** Joins the truthy parts into one line: "Мультимедиа, checked 5 min ago". */
 export function meta(...parts: (string | number | null | undefined | false)[]): string {
-  return parts.filter((p) => p !== null && p !== undefined && p !== false && p !== '').join(' · ');
+  return parts.filter((p) => p !== null && p !== undefined && p !== false && p !== '').join(', ');
 }

@@ -76,10 +76,11 @@ function Navigator() {
       <Stack
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.bg } }}
       >
-        <Stack.Protected guard={!onboarded}>
+        {/* Explicit targets: the default fallback is the shortest unguarded route name. */}
+        <Stack.Protected guard={!onboarded} redirectTo="/">
           <Stack.Screen name="onboarding" />
         </Stack.Protected>
-        <Stack.Protected guard={onboarded}>
+        <Stack.Protected guard={onboarded} redirectTo="/onboarding">
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="add" />
           <Stack.Screen name="app/[topicId]" />
@@ -88,7 +89,6 @@ function Navigator() {
             options={{ presentation: 'transparentModal', animation: 'none' }}
           />
         </Stack.Protected>
-        <Stack.Screen name="scan" />
         <Stack.Screen name="sign-in" options={{ presentation: 'modal' }} />
       </Stack>
     </>

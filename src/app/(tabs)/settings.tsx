@@ -251,7 +251,7 @@ export default function SettingsScreen() {
         />
       </List>
       <Text variant="caption" color="inkMuted" style={styles.footnote}>
-        Grabby {Constants.expoConfig?.version} · an independent app, not made by 4PDA.
+        Grabby {Constants.expoConfig?.version}. An independent app, not made by 4PDA.
       </Text>
     </View>
   );

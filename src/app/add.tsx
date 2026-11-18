@@ -3,7 +3,6 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
 
 import {
   AppRow,
@@ -25,7 +24,7 @@ import { db } from '@/db/client';
 import { apps } from '@/db/schema';
 import { fetchTopic, FourPdaError, searchTopics } from '@/fourpda/client';
 import { parseTopicLink } from '@/fourpda/urls';
-import { openSuggestions, trackTopic, untrack } from '@/services/apps';
+import { trackTopic, untrack } from '@/services/apps';
 import { native } from '@/native';
 
 function useDebounced<T>(value: T, ms: number) {
@@ -47,19 +46,29 @@ export default function AddAppScreen() {
   const debounced = useDebounced(query.trim(), 300);
   const tracked = useLiveQuery(db.select({ id: apps.topicId }).from(apps));
   const trackedIds = new Set(tracked.data.map((t) => t.id));
-  const found = useLiveQuery(openSuggestions());
 
   const isLink = looksLikeLink(debounced);
+  const typedLinkId = isLink ? parseTopicLink(debounced) : null;
 
-  // A pasted topic link skips search and opens the topic as a preview.
+  const openTopic = (topicId: number) => {
+    setQuery('');
+    router.push(`/app/${topicId}`);
+  };
+
+  // A pasted topic link skips search and opens the topic as a preview. Only a change that turns
+  // non-link text into a whole topic link counts as a paste: a link typed by hand (keyboards may
+  // commit it in chunks) is already link-like at `https://`, before the id, so it can't open
+  // `showtopic=1`, `=11`, … on the way. It waits for Open topic or the search key.
   const onChangeText = (text: string) => {
-    const linkId = looksLikeLink(text) ? parseTopicLink(text) : null;
-    if (linkId) {
-      setQuery('');
-      router.push(`/app/${linkId}`);
-    } else {
-      setQuery(text);
-    }
+    const pasted = !looksLikeLink(query) && looksLikeLink(text);
+    const linkId = pasted && looksLikeLink(text) ? parseTopicLink(text) : null;
+    if (linkId) openTopic(linkId);
+    else setQuery(text);
+  };
+
+  const onSubmit = () => {
+    const linkId = looksLikeLink(query) ? parseTopicLink(query) : null;
+    if (linkId) openTopic(linkId);
   };
 
   const search = useQuery({
@@ -77,13 +86,12 @@ export default function AddAppScreen() {
     else snackbar({ message: 'No 4PDA topic link on the clipboard' });
   };
 
-  const track = async (topicId: number, packageName?: string) => {
+  const track = async (topicId: number) => {
     setBusy(topicId);
     try {
       const r = await fetchTopic(topicId);
       if (r.status !== 'ok') return;
-      const pkgName = packageName ?? r.topic.packageName;
-      const pkg = pkgName ? await native.getPackage(pkgName) : null;
+      const pkg = r.topic.packageName ? await native.getPackage(r.topic.packageName) : null;
       await trackTopic(r.topic, r.lastModified, pkg);
       snackbar({
         message: `Tracking ${r.topic.title}`,
@@ -105,7 +113,7 @@ export default function AddAppScreen() {
   const hits = search.data ?? [];
   const showResults = debounced.length >= 2 && !isLink;
 
-  const trailing = (topicId: number, packageName?: string) =>
+  const trailing = (topicId: number) =>
     trackedIds.has(topicId) ? (
       <StatusChip tone="tracking" />
     ) : (
@@ -114,7 +122,7 @@ export default function AddAppScreen() {
         variant="secondary"
         icon="plus"
         loading={busy === topicId}
-        onPress={() => void track(topicId, packageName)}
+        onPress={() => void track(topicId)}
       >
         Track
       </Button>
@@ -127,11 +135,22 @@ export default function AddAppScreen() {
         value={query}
         onChangeText={onChangeText}
         onPasteLink={() => void pasteLink()}
+        onSubmitEditing={onSubmit}
         autoFocus
       />
       <Gap />
 
-      {isLink ? (
+      {typedLinkId ? (
+        <Banner
+          tone="info"
+          icon="link"
+          title="That’s a 4PDA topic link"
+          action="Open topic"
+          onAction={() => openTopic(typedLinkId)}
+        >
+          Open it to see the files and start tracking.
+        </Banner>
+      ) : isLink ? (
         <Banner tone="danger" icon="link" title="That link isn’t a 4PDA topic">
           Topic links look like 4pda.to/forum/index.php?showtopic=…
         </Banner>
@@ -207,38 +226,6 @@ export default function AddAppScreen() {
         )
       ) : null}
 
-      {!showResults ? (
-        found.data.length ? (
-          <>
-            <SectionHeader title="Found on this phone" count={found.data.length} />
-            <List>
-              {found.data.map((s) => (
-                <AppRow
-                  key={s.topicId}
-                  name={s.label}
-                  status="track"
-                  latest={null}
-                  note={s.installedVersion ? `You have ${s.installedVersion}` : s.title}
-                  trailing={trailing(s.topicId, s.packageName)}
-                  onPress={() => router.push(`/app/${s.topicId}`)}
-                />
-              ))}
-            </List>
-          </>
-        ) : (
-          <View>
-            <SectionHeader title="Found on this phone" />
-            <EmptyState
-              icon="apps"
-              title="Match your installed apps"
-              secondary="Scan this phone"
-              onSecondary={() => router.push('/scan')}
-            >
-              Grabby can look up the apps on this phone on 4PDA. It needs a 4PDA sign-in to search.
-            </EmptyState>
-          </View>
-        )
-      ) : null}
     </Screen>
   );
 }

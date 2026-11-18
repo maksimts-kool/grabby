@@ -19,7 +19,7 @@ export interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   onPress?: () => void;
-  /** Verb first, sentence case, no full stop: "Update · 18 MB". */
+  /** Verb first, sentence case, no full stop: "Update (18 MB)". */
   children: string;
   testID?: string;
 }

@@ -84,7 +84,7 @@ export default function DownloadsScreen() {
   const freeable = installed.data.reduce((sum, d) => sum + (d.bytesTotal ?? 0), 0);
 
   const subtitle = waitingForWifi
-    ? 'Paused · waiting for Wi‑Fi'
+    ? 'Paused, waiting for Wi‑Fi'
     : active.length
       ? meta(`${active.length} in progress`, system.network === 'wifi' ? 'on Wi‑Fi' : null)
       : ready.length
@@ -219,7 +219,7 @@ export default function DownloadsScreen() {
           title={`Not enough space for ${a?.title ?? storageFail.fileName}${storageFail.bytesTotal ? ` (${formatSize(storageFail.bytesTotal)})` : ''}`}
           action={
             installed.data.length
-              ? `Delete ${installed.data.length} installed APKs · ${formatSize(freeable)}`
+              ? `Delete ${installed.data.length} installed APKs (${formatSize(freeable)})`
               : undefined
           }
           onAction={async () => {

@@ -55,7 +55,7 @@ export function UpdateSummary({
               <Text variant="title">All up to date</Text>
             </View>
             <Text variant="label" color="inkMuted" style={styles.sub}>
-              {meta(tracked ? `${tracked} apps tracked` : null, checked)}
+              {meta(tracked ? `${tracked} ${tracked === 1 ? 'app' : 'apps'} tracked` : null, checked)}
             </Text>
           </View>
           {check}

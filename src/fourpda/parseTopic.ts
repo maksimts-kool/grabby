@@ -36,6 +36,14 @@ export const PostSchema = z.object({
   files: z.array(TopicFileSchema),
 });
 
+export const ModSchema = z.object({
+  version: z.string().min(1),
+  /** The post that attaches the mod's APKs (a `findpost` link in the header). */
+  postId: z.number().int().positive(),
+  /** Link text as posted, e.g. "Plus (NURIK)". */
+  label: z.string().nullable(),
+});
+
 export const TopicSchema = PostSchema.extend({
   id: z.number().int().positive(),
   title: z.string().min(1),
@@ -46,11 +54,16 @@ export const TopicSchema = PostSchema.extend({
   headerUpdated: z.string().nullable(),
   /** Posts the header's download section points to, when it attaches no APK itself. */
   downloadPostIds: z.array(z.number().int().positive()),
+  /** Mods listed in the header's "Модификации" spoiler, newest first as posted. */
+  mods: z.array(ModSchema),
+  /** Set when version and files come from a mod newer than the official build. */
+  mod: z.string().nullable(),
 });
 
 export type Topic = z.infer<typeof TopicSchema>;
 export type TopicFile = z.infer<typeof TopicFileSchema>;
 export type Post = z.infer<typeof PostSchema>;
+export type Mod = z.infer<typeof ModSchema>;
 
 export class TopicParseError extends Error {
   constructor(public readonly code: 'login-required' | 'no-first-post' | 'no-title' | 'no-post') {
@@ -62,6 +75,7 @@ export class TopicParseError extends Error {
 const APK = /\.(apk|apks|xapk|apkm)$/i;
 const OLD_VERSIONS = /прошл|предыдущ|стар|архив|old|previous|history|другим именем/i;
 const SKIP_SPOILERS = /скриншот|screenshot|скрины/i;
+const MODS = /модифи|^mods?\b/i;
 const CHANGELOG = /измен|что нового|новое в|changelog|what'?s new|история версий/i;
 const DOWNLOAD = /Скачать|Download/i;
 const VERSION =
@@ -107,7 +121,7 @@ function spoilerTitle(el: HTMLElement, body: HTMLElement): string | null {
 
 function inOldOrMedia(el: HTMLElement, body: HTMLElement) {
   const t = spoilerTitle(el, body);
-  return !!t && (OLD_VERSIONS.test(t) || SKIP_SPOILERS.test(t));
+  return !!t && (OLD_VERSIONS.test(t) || SKIP_SPOILERS.test(t) || MODS.test(t));
 }
 
 function fileFromLink(a: HTMLElement): TopicFile | null {
@@ -178,6 +192,37 @@ function readPost(body: HTMLElement): Post {
   return { version: versionIn(body, files), changelog: changelogIn(body), files };
 }
 
+function findpostId(a: HTMLElement): number | null {
+  const href = (a.getAttribute('href') ?? '').replace(/&amp;/g, '&');
+  const p =
+    href.match(/[?&]view=findpost&p=(\d+)/)?.[1] ?? href.match(/[?&]p=(\d+).*view=findpost/)?.[1];
+  return p ? Number(p) : null;
+}
+
+/**
+ * The header's "Модификации" spoiler: one line per mod, `<b>Версия: 5.205.0.1815</b> <a
+ * href="…findpost&p=…">Plus (NURIK)</a>`. Lines without a version or a post link are skipped.
+ */
+function modsIn(body: HTMLElement): Mod[] {
+  const out: Mod[] = [];
+  for (const block of body.querySelectorAll('.post-block.spoil')) {
+    if (!MODS.test(clean(block.querySelector('.block-title')?.text ?? ''))) continue;
+    const content = block.querySelector('.block-body');
+    if (!content) continue;
+    for (const line of content.innerHTML.split(/<br\s*\/?>/i)) {
+      const version = line.match(VERSION)?.[1]?.trim();
+      const link = parse(line)
+        .querySelectorAll('a')
+        .map((a) => ({ id: findpostId(a), label: clean(a.text) || null }))
+        .find((l) => l.id);
+      if (version && link?.id && !out.some((m) => m.postId === link.id)) {
+        out.push({ version, postId: link.id, label: link.label });
+      }
+    }
+  }
+  return out;
+}
+
 /** `findpost&p=<id>` links after the header's "Скачать" marker, outside old-version spoilers. */
 function downloadLinksIn(body: HTMLElement): number[] {
   // Source offset of the first "Скачать" text; `range` is the node's position in the page.
@@ -195,13 +240,10 @@ function downloadLinksIn(body: HTMLElement): number[] {
   if (!walk(body)) return [];
   const ids: number[] = [];
   for (const a of body.querySelectorAll('a')) {
-    const href = (a.getAttribute('href') ?? '').replace(/&amp;/g, '&');
-    const p =
-      href.match(/[?&]view=findpost&p=(\d+)/)?.[1] ?? href.match(/[?&]p=(\d+).*view=findpost/)?.[1];
-    if (!p) continue;
+    const id = findpostId(a);
+    if (!id) continue;
     if (a.range[0] < markerAt) continue;
     if (inOldOrMedia(a, body)) continue;
-    const id = Number(p);
     if (!ids.includes(id)) ids.push(id);
   }
   return ids;
@@ -264,6 +306,8 @@ export function parseTopic(html: string, topicId: number): Topic {
     changelog: post.changelog,
     files: post.files,
     downloadPostIds: post.files.length ? [] : downloadLinksIn(body),
+    mods: modsIn(body),
+    mod: null,
   } satisfies Topic);
 }
 

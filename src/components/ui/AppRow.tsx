@@ -41,14 +41,6 @@ export interface AppRowProps {
   testID?: string;
 }
 
-function Dot() {
-  return (
-    <Text variant="caption" color="inkMuted">
-      ·
-    </Text>
-  );
-}
-
 /** One tracked (or findable) app: icon, name, a state-specific meta line, one trailing action. */
 export function AppRow(props: AppRowProps) {
   const { theme } = useUnistyles();
@@ -80,12 +72,9 @@ export function AppRow(props: AppRowProps) {
         <>
           <VersionDelta to={latest} highlight size="sm" />
           {size ? (
-            <>
-              <Dot />
-              <Text variant="caption" color="inkMuted">
-                {size}
-              </Text>
-            </>
+            <Text variant="caption" color="inkMuted">
+              {size}
+            </Text>
           ) : null}
         </>
       );
@@ -98,8 +87,8 @@ export function AppRow(props: AppRowProps) {
           <Text variant="caption" style={styles.strong}>
             {Math.round(props.progress ?? 0)}%
           </Text>
-          {props.transferred ? ` · ${props.transferred}` : ''}
-          {props.speed ? ` · ${props.speed}` : ''}
+          {props.transferred ? `, ${props.transferred}` : ''}
+          {props.speed ? `, ${props.speed}` : ''}
         </Text>
       );
       extra = (
@@ -114,7 +103,7 @@ export function AppRow(props: AppRowProps) {
         <>
           <VersionDelta to={latest} size="sm" />
           <Text variant="caption" color="inkMuted" numberOfLines={1}>
-            {` · ${[size, 'Queued'].filter(Boolean).join(' · ')}`}
+            {size ? `${size}, queued` : 'Queued'}
           </Text>
         </>
       );
@@ -124,7 +113,6 @@ export function AppRow(props: AppRowProps) {
       line = (
         <>
           <VersionDelta to={latest} highlight size="sm" />
-          <Dot />
           <Text variant="caption" color="inkMuted">
             Downloaded
           </Text>
@@ -153,7 +141,7 @@ export function AppRow(props: AppRowProps) {
           <VersionDelta to={latest} size="sm" />
           {note ? (
             <Text variant="caption" color="inkMuted" numberOfLines={1} style={styles.shrink}>
-              {` · ${note}`}
+              {note}
             </Text>
           ) : null}
         </>
@@ -166,7 +154,7 @@ export function AppRow(props: AppRowProps) {
         <>
           <VersionDelta to={installed ?? latest} size="sm" />
           <Text variant="caption" color="inkMuted" numberOfLines={1} style={styles.shrink}>
-            {` · ${note || 'Up to date'}`}
+            {note || 'Up to date'}
           </Text>
         </>
       );
@@ -207,7 +195,13 @@ const styles = StyleSheet.create((theme) => ({
     paddingRight: theme.space[3],
   },
   main: { flex: 1, minWidth: 0, gap: 2 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' },
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[2],
+    minWidth: 0,
+    overflow: 'hidden',
+  },
   strong: { color: theme.colors.ink, fontFamily: theme.type.label.fontFamily },
   shrink: { flexShrink: 1 },
   progress: { marginTop: 6 },

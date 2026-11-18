@@ -70,13 +70,7 @@ export default function OnboardingScreen() {
 
   const notificationsBlocked = !system.notifications && (refused || !system.notificationsCanAsk);
 
-  const finish = () => {
-    if (signedIn) {
-      router.replace({ pathname: '/scan', params: { onboarding: '1' } });
-    } else {
-      settings.set('onboarded', true);
-    }
-  };
+  const finish = () => settings.set('onboarded', true);
 
   return (
     <Screen testID="onboarding">

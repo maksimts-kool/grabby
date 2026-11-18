@@ -227,6 +227,7 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
 
   const sub = meta(
     app.category,
+    app.latestMod && `mod ${app.latestMod}`,
     upToDate
       ? app.lastCheckedAt && `checked ${formatRelative(app.lastCheckedAt, now)}`
       : app.latestSeenAt && `topic updated ${formatRelative(app.latestSeenAt, now)}`,
@@ -281,7 +282,7 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
       </Button>
     );
   } else if (item.update && selectedFile) {
-    const size = selectedFile.sizeBytes ? ` · ${formatSize(selectedFile.sizeBytes)}` : '';
+    const size = selectedFile.sizeBytes ? ` (${formatSize(selectedFile.sizeBytes)})` : '';
     primary = (
       <Button
         block
@@ -335,6 +336,14 @@ function Tracked({ item, bar }: { item: LibraryItem; bar: React.ReactNode }) {
             onAction={native.openInstallPermissionSettings}
           >
             Android blocks installs from Grabby until you allow it.
+          </Banner>
+          <Gap />
+        </>
+      ) : null}
+      {app.latestMod && item.update && app.installedVersion ? (
+        <>
+          <Banner tone="warn" icon="shield" title={`${app.latestVersion} is a mod`}>
+            {`Posted as ${app.latestMod}. Mods are signed differently, so Android may refuse to install it over your copy until you uninstall that first.`}
           </Banner>
           <Gap />
         </>
@@ -459,7 +468,7 @@ function Preview({
       {bar}
       <Header
         name={topic.title}
-        sub={meta(topic.category, topic.description) || 'From 4PDA'}
+        sub={meta(topic.category, topic.mod && `mod ${topic.mod}`, topic.description) || 'From 4PDA'}
         version={<VersionDelta to={topic.version} size="lg" highlight />}
       />
       <View style={styles.pad}>

@@ -11,6 +11,8 @@ export const apps = sqliteTable('apps', {
   packageName: text('package_name'),
   latestVersion: text('latest_version'),
   latestIsBeta: integer('latest_is_beta', { mode: 'boolean' }).notNull().default(false),
+  /** Label of the mod ("Plus (NURIK)") when the latest build is a mod, not the official one. */
+  latestMod: text('latest_mod'),
   /** When Grabby first saw `latestVersion` (ms). */
   latestSeenAt: integer('latest_seen_at'),
   /** "Последнее обновление программы в шапке", as posted (dd.mm.yyyy). */
@@ -113,22 +115,7 @@ export const activity = sqliteTable(
   (t) => [index('activity_at_idx').on(t.at)],
 );
 
-/**
- * "Found on this phone": installed apps the phone scan matched to a 4PDA topic by searching
- * their names. Shown on Add app until tracked or dismissed.
- */
-export const suggestions = sqliteTable('suggestions', {
-  topicId: integer('topic_id').primaryKey(),
-  title: text('title').notNull(),
-  packageName: text('package_name').notNull(),
-  label: text('label').notNull(),
-  installedVersion: text('installed_version'),
-  foundAt: integer('found_at').notNull(),
-  dismissed: integer('dismissed', { mode: 'boolean' }).notNull().default(false),
-});
-
 export type App = typeof apps.$inferSelect;
-export type Suggestion = typeof suggestions.$inferSelect;
 export type NewApp = typeof apps.$inferInsert;
 export type AppFile = typeof files.$inferSelect;
 export type Download = typeof downloads.$inferSelect;

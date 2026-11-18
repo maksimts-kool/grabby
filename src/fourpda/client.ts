@@ -1,5 +1,7 @@
 import Constants from 'expo-constants';
 
+import { compareVersions } from '@/lib/version';
+
 import { decodeHtml } from './decode';
 import { parsePost, parseTopic, TopicParseError, type Topic } from './parseTopic';
 import { parseSearch, type SearchHit } from './parseSearch';
@@ -110,6 +112,37 @@ export async function fetchTopic(
       }
     } catch (e) {
       // The header still tells us the version; files stay empty and the app says so.
+      if (e instanceof FourPdaError && e.code === 'network') throw e;
+    }
+  }
+
+  // Some topics only keep their mods current: the header's official build is months old while
+  // "Модификации" links to newer posts. Follow the newest mod when it's ahead of the header.
+  const mod = topic.mods.reduce<(typeof topic.mods)[number] | null>(
+    (best, m) => (!best || compareVersions(m.version, best.version) > 0 ? m : best),
+    null,
+  );
+  if (mod && (!topic.version || compareVersions(mod.version, topic.version) > 0)) {
+    try {
+      const linked = await getPage(
+        `${ORIGIN}/forum/index.php?showtopic=${topicId}&view=findpost&p=${mod.postId}`,
+        { signal: options.signal },
+      );
+      if (linked !== 'not-modified') {
+        const post = parsePost(linked.html, mod.postId);
+        if (post.files.length) {
+          topic = {
+            ...topic,
+            version: mod.version,
+            isBeta: false,
+            files: post.files,
+            changelog: post.changelog.length ? post.changelog : topic.changelog,
+            mod: mod.label ?? 'Mod',
+          };
+        }
+      }
+    } catch (e) {
+      // The official build from the header stays the answer.
       if (e instanceof FourPdaError && e.code === 'network') throw e;
     }
   }

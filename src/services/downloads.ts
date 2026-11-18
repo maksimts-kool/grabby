@@ -374,7 +374,7 @@ async function onInstallStatus(e: {
   if (!d) return;
   let text: string | null = null;
   if (settings.get('deleteApkAfterInstall') && d.path && native.deleteApk(d.path)) {
-    text = `APK deleted · ${formatSize(d.bytesTotal)} freed`;
+    text = `APK deleted, ${formatSize(d.bytesTotal)} freed`;
     await db.update(downloads).set({ path: null }).where(eq(downloads.id, id));
   }
   await db

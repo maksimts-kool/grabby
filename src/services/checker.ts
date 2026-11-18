@@ -106,7 +106,7 @@ async function run(reason: CheckReason): Promise<CheckResult> {
             tone: 'neutral',
             icon: 'beta',
             title: `Beta posted in ${app.title} topic`,
-            text: `${topic.version} · betas are muted`,
+            text: `${topic.version}, betas are muted`,
             topicId: app.topicId,
           });
         } else if (isNew && hasUpdate(after, betas)) {

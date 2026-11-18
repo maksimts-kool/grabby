@@ -36,7 +36,10 @@ export type SettingKey = keyof Schema;
 export type SettingValue<K extends SettingKey> = z.output<Schema[K]>;
 
 function read<K extends SettingKey>(key: K): SettingValue<K> {
-  const raw = storage.getString(key);
+  return parse(key, storage.getString(key));
+}
+
+function parse<K extends SettingKey>(key: K, raw: string | undefined): SettingValue<K> {
   let parsed: unknown = undefined;
   if (raw !== undefined) {
     try {
@@ -66,9 +69,9 @@ export function useSetting<K extends SettingKey>(key: K) {
     useCallback((cb: () => void) => subscribe(key, cb), [key]),
     () => storage.getString(key),
   );
-  // `value` is the raw string so the snapshot is referentially stable; parse on use.
-  void value;
-  const current = read(key);
+  // `value` is the raw string so the snapshot is referentially stable. Parse that snapshot, not a
+  // fresh read: the React Compiler memoises `read(key)` on `key` alone, which froze the value.
+  const current = parse(key, value);
   const set = useCallback((next: SettingValue<K>) => write(key, next), [key]);
   return [current, set] as const;
 }

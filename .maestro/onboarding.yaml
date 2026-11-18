@@ -9,4 +9,5 @@ appId: dev.grabby.app
 - tapOn:
     id: 'continue'
 - assertVisible: 'No apps yet'
-- assertVisible: 'Scan this phone'
+- assertVisible:
+    id: 'add-app'

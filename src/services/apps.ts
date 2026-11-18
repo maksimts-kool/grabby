@@ -1,7 +1,7 @@
-import { and, eq, isNotNull, notInArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { apps, files, suggestions, type App } from '@/db/schema';
+import { apps, files, type App } from '@/db/schema';
 import type { Topic } from '@/fourpda/parseTopic';
 import { fileNamePattern } from '@/lib/abi';
 import { native, type InstalledPackage } from '@/native';
@@ -17,6 +17,7 @@ export async function saveTopic(topic: Topic, lastModified: string | null, previ
     packageName: previous?.packageName ?? topic.packageName,
     latestVersion: topic.version,
     latestIsBeta: topic.isBeta,
+    latestMod: topic.mod,
     latestSeenAt: versionChanged ? now : (previous?.latestSeenAt ?? now),
     headerUpdated: topic.headerUpdated,
     changelog: topic.changelog,
@@ -57,7 +58,6 @@ export async function trackTopic(
   await saveTopic(topic, lastModified, null);
   if (installed) await linkPackage(topic.id, installed);
   else if (topic.packageName) await refreshInstalled([topic.id]);
-  await db.update(suggestions).set({ dismissed: true }).where(eq(suggestions.topicId, topic.id));
   await logActivity({
     kind: 'tracked',
     tone: 'neutral',
@@ -141,29 +141,4 @@ export async function refreshInstalled(onlyTopicIds?: number[]) {
         .where(eq(apps.topicId, app.topicId));
     }
   }
-  // Keep suggestion notes ("You have 0.27.2") current, and drop ones for uninstalled apps.
-  const known = await db.select().from(suggestions).where(isNotNull(suggestions.packageName));
-  for (const s of known) {
-    const pkg = byPackage.get(s.packageName);
-    if (!pkg) await db.delete(suggestions).where(eq(suggestions.topicId, s.topicId));
-    else if (pkg.versionName !== s.installedVersion) {
-      await db
-        .update(suggestions)
-        .set({ installedVersion: pkg.versionName })
-        .where(eq(suggestions.topicId, s.topicId));
-    }
-  }
-}
-
-/** Suggestions that aren't tracked or dismissed. */
-export function openSuggestions() {
-  return db
-    .select()
-    .from(suggestions)
-    .where(
-      and(
-        eq(suggestions.dismissed, false),
-        notInArray(suggestions.topicId, db.select({ id: apps.topicId }).from(apps)),
-      ),
-    );
 }
