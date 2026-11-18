@@ -36,7 +36,7 @@ export function FileOption({
       accessibilityState={{ checked: !!selected, disabled: !!disabled }}
       onPress={onPress}
       disabled={disabled || !onPress}
-      style={[styles.option, selected && styles.selected]}
+      style={[styles.option, selected && styles.selected, disabled && !selected && styles.disabled]}
     >
       <View style={[styles.radio, selected && styles.radioOn]} />
       <View style={styles.text}>
@@ -70,6 +70,8 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.space[3] - 1,
     paddingHorizontal: theme.space[4] - 1,
   },
+  // Locked choice: the picked build stays at full strength, the others fade.
+  disabled: { opacity: theme.disabledOpacity },
   radio: {
     width: 20,
     height: 20,

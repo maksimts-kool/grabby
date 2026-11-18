@@ -1,0 +1,17 @@
+# Track a supported app from Add app (needs network; reads the app's 4PDA topic).
+# Run after onboarding.yaml. Pick the app with: maestro test -e TOPIC=<id> … (181125 OsmAnd, 719545 Moovit)
+appId: dev.grabby.app
+env:
+  TOPIC: '181125'
+---
+- launchApp
+- tapOn:
+    id: 'add-app'
+- tapOn:
+    id: 'track-${TOPIC}'
+- extendedWaitUntil:
+    visible: 'Tracking .*'
+    timeout: 20000
+- back
+- assertVisible:
+    id: 'app-row-${TOPIC}'

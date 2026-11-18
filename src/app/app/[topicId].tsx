@@ -248,9 +248,18 @@ function Tracked({
 
   const active =
     download && ['queued', 'downloading', 'paused'].includes(download.status) ? download : null;
-  const selected = active?.attachId ?? chosen ?? item.file?.attachId ?? null;
+  const ready = download?.status === 'ready' ? download : null;
+  const selected = (active ?? ready)?.attachId ?? chosen ?? item.file?.attachId ?? null;
   const selectedFile = files.find((f) => f.attachId === selected) ?? item.file;
   const upToDate = !item.update && !!app.installedVersion;
+  // The build is settled once it's downloading, downloaded or already the installed version.
+  const fileLock = active
+    ? 'Cancel the download to pick another file'
+    : ready
+      ? 'Install the downloaded file before picking another'
+      : upToDate
+        ? 'This version is installed'
+        : null;
 
   const sub = meta(
     app.category,
@@ -440,24 +449,21 @@ function Tracked({
               note={/\blite\b|_lite/i.test(f.name) ? 'Lite' : null}
               selected={f.attachId === selected}
               recommended={f.attachId === fittingAttachId}
+              disabled={!!fileLock}
               onPress={() => {
-                if (f.attachId === selected) return;
+                if (fileLock || f.attachId === selected) return;
                 setChosen(f.attachId);
                 void rememberFile(app.topicId, f.name);
-                if (active) {
-                  // Switching builds mid-download: drop the current file, fetch the new one.
-                  void (async () => {
-                    await cancel(active.id);
-                    await actions.start(app.topicId, f.attachId);
-                  })();
-                  snackbar({ message: `Downloading ${abiFromFileName(f.name) ?? f.name} instead` });
-                } else {
-                  snackbar({ message: 'Grabby will pick this build next time too' });
-                }
+                snackbar({ message: 'Grabby will pick this build next time too' });
               }}
             />
           ))
         )}
+        {fileLock && files.length > 1 ? (
+          <Text variant="caption" color="inkMuted" testID="file-lock">
+            {fileLock}
+          </Text>
+        ) : null}
       </View>
 
       {app.changelog.length && app.latestVersion ? (
