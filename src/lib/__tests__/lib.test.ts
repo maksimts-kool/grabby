@@ -7,6 +7,7 @@ import {
   formatTransferred,
   meta,
 } from '../format';
+import { isCheckDue, isCheckLate, needsReschedule } from '../schedule';
 import { hasUpdate } from '../updates';
 import { compareVersions, isNewer, isPrerelease } from '../version';
 
@@ -147,5 +148,29 @@ describe('format', () => {
     expect(formatEta(5)).toBe('5 s left');
     expect(formatEta(130)).toBe('3 min left');
     expect(meta('18 MB', null, 'checked 12 min ago', '')).toBe('18 MB, checked 12 min ago');
+  });
+});
+
+describe('check schedule', () => {
+  const hour = 3_600_000;
+  const now = 1_000 * hour;
+
+  it('is due once a full interval has passed', () => {
+    expect(isCheckDue(null, 12, now)).toBe(true);
+    expect(isCheckDue(now - 11 * hour, 12, now)).toBe(false);
+    expect(isCheckDue(now - 12 * hour, 12, now)).toBe(true);
+    expect(isCheckDue(now - 13 * hour, 12, now)).toBe(true);
+  });
+
+  it('is late after twice the interval', () => {
+    expect(isCheckLate(null, 12, now)).toBe(false);
+    expect(isCheckLate(now - 24 * hour, 12, now)).toBe(false);
+    expect(isCheckLate(now - 25 * hour, 12, now)).toBe(true);
+  });
+
+  it('keeps the existing registration when the interval is unchanged', () => {
+    expect(needsReschedule(720, 720)).toBe(false);
+    expect(needsReschedule(null, 720)).toBe(true);
+    expect(needsReschedule(360, 720)).toBe(true);
   });
 });

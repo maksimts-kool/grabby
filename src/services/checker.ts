@@ -68,7 +68,9 @@ async function run(reason: CheckReason): Promise<CheckResult> {
   if (network === 'none') {
     return { checked: 0, found: [], failed: [], skipped: 'offline' };
   }
-  if (reason === 'background' && settings.get('wifiOnly') && network !== 'wifi') {
+  if (reason !== 'manual' && settings.get('wifiOnly') && network !== 'wifi') {
+    // The catch-up check on app open retries on every open; only log the background one.
+    if (reason === 'start') return { checked: 0, found: [], failed: [], skipped: 'wifi' };
     await logActivity({
       kind: 'check-skipped',
       tone: 'neutral',

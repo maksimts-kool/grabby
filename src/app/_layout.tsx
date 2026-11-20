@@ -20,7 +20,7 @@ import { SnackbarProvider, Text } from '@/components/ui';
 import { db } from '@/db/client';
 import { useSetting } from '@/lib/settings';
 import { refreshInstalled } from '@/services/apps';
-import { scheduleBackgroundCheck } from '@/services/background';
+import { checkIfDue, scheduleBackgroundCheck } from '@/services/background';
 import { queueAllUpdates, startDownloadService } from '@/services/downloads';
 import { handleNotificationResponses, setupNotifications } from '@/services/notifications';
 import { isSignedIn } from '@/services/session';
@@ -103,12 +103,14 @@ function Startup() {
     scheduleBackgroundCheck().catch(() => {});
     isSignedIn().catch(() => {});
     refreshInstalled().catch(() => {});
+    checkIfDue().catch(() => {});
     const stopResponses = handleNotificationResponses(() => void queueAllUpdates());
     // Installs and permission changes happen outside the app: re-read on return.
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
       refreshInstalled().catch(() => {});
       isSignedIn().catch(() => {});
+      checkIfDue().catch(() => {});
     });
     return () => {
       stopResponses();
