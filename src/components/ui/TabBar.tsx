@@ -1,84 +1,86 @@
-import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { useEffect, type ReactNode } from 'react';
+import { Pressable, View, type PressableProps, type ViewProps } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
-const TABS: Record<string, { icon: IconName; label: string }> = {
-  index: { icon: 'apps', label: 'Apps' },
-  activity: { icon: 'bell', label: 'Activity' },
-  settings: { icon: 'settings', label: 'Settings' },
-};
-
 /**
- * Bottom navigation, three fixed tabs: Apps · Activity · Settings.
- * Active: lime pill behind the icon (grows from the centre, 200 ms ease-out), ink label. Badge (amber) only on Apps,
- * passed through the screen's `tabBarBadge` option.
+ * Bottom navigation, three fixed tabs: Apps · Activity · Settings. Built for expo-router's
+ * headless tabs: `<TabList asChild><TabBar>` with one `<TabTrigger asChild><TabBarItem>` per tab.
+ * Active: lime pill behind the icon (grows from the centre, 200 ms ease-out), ink label.
+ * Badge (amber) only on Apps.
  */
-export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
+export function TabBar({ style, children, ...rest }: ViewProps & { children: ReactNode }) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   return (
     <View
+      {...rest}
       style={[
+        style,
         styles.bar,
         { paddingBottom: insets.bottom, height: theme.size.tabbarH + insets.bottom },
       ]}
     >
-      {state.routes.map((route, index) => {
-        const tab = TABS[route.name];
-        if (!tab) return null;
-        const focused = index === state.index;
-        const badge = descriptors[route.key]?.options.tabBarBadge;
-        const onPress = () => {
-          const event = emitter.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!focused && !event.defaultPrevented) navigateToTab(route.key);
-        };
-        return (
-          <Pressable
-            key={route.key}
-            testID={`tab-${route.name}`}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: focused }}
-            accessibilityLabel={badge ? `${tab.label}, ${badge} new` : tab.label}
-            onPress={onPress}
-            onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
-            style={styles.tab}
-          >
-            <View style={styles.indicator}>
-              <Pill focused={focused} />
-              <Icon name={tab.icon} size={22} color={focused ? 'onLime' : 'inkMuted'} />
-              {badge ? (
-                <View style={styles.count}>
-                  <Text
-                    variant="caption"
-                    color="onAmber"
-                    style={styles.countText}
-                    allowFontScaling={false}
-                  >
-                    {String(badge)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <Text variant="caption" color={focused ? 'ink' : 'inkMuted'} style={styles.label}>
-              {tab.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {children}
     </View>
+  );
+}
+
+export interface TabBarItemProps extends Omit<PressableProps, 'children'> {
+  icon: IconName;
+  label: string;
+  /** Count on the amber badge; hidden when 0. */
+  badge?: number;
+  /** Set by TabTrigger. */
+  isFocused?: boolean;
+  testID?: string;
+}
+
+export function TabBarItem({
+  icon,
+  label,
+  badge,
+  isFocused = false,
+  style: _style,
+  ...pressable
+}: TabBarItemProps) {
+  return (
+    <Pressable
+      {...pressable}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={badge ? `${label}, ${badge} new` : label}
+      style={styles.tab}
+    >
+      <View style={styles.indicator}>
+        <Pill focused={isFocused} />
+        <Icon name={icon} size={22} color={isFocused ? 'onLime' : 'inkMuted'} />
+        {badge ? (
+          <View style={styles.count}>
+            <Text
+              variant="caption"
+              color="onAmber"
+              style={styles.countText}
+              allowFontScaling={false}
+            >
+              {String(badge)}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <Text variant="caption" color={isFocused ? 'ink' : 'inkMuted'} style={styles.label}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -100,6 +102,7 @@ function Pill({ focused }: { focused: boolean }) {
 const styles = StyleSheet.create((theme) => ({
   bar: {
     flexDirection: 'row',
+    justifyContent: 'flex-start',
     paddingHorizontal: theme.space[2],
     backgroundColor: theme.colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,

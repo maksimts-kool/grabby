@@ -20,7 +20,7 @@ export { Skeleton, SkeletonGroup } from './Skeleton';
 export { SnackbarProvider, useSnackbar } from './Snackbar';
 export { StatusChip } from './StatusChip';
 export { Switch } from './Switch';
-export { TabBar } from './TabBar';
+export { TabBar, TabBarItem, type TabBarItemProps } from './TabBar';
 export { Text } from './Text';
 export { TopBar } from './TopBar';
 export { UpdateSummary } from './UpdateSummary';

@@ -23,6 +23,7 @@ export function Spin({ active, children }: { active: boolean; children: React.Re
       });
     }
   }, [active, turn]);
+  useEffect(() => () => cancelAnimation(turn), [turn]);
   const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 360}deg` }] }));
   return <Animated.View style={style}>{children}</Animated.View>;
 }

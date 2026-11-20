@@ -1,5 +1,5 @@
 import { asc, desc, eq, inArray, not } from 'drizzle-orm';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/live';
 
 import type { AppRowStatus } from '@/components/ui';
 import { db } from '@/db/client';
@@ -34,8 +34,38 @@ export function rowStatus(item: LibraryItem): { status: AppRowStatus; note?: str
   return { status: 'latest' };
 }
 
+function groupBy<T, K>(rows: T[], key: (row: T) => K) {
+  const map = new Map<K, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const list = map.get(k);
+    if (list) list.push(row);
+    else map.set(k, [row]);
+  }
+  return map;
+}
+
 export function fileSize(item: LibraryItem) {
   return item.file?.sizeBytes ? formatSize(item.file.sizeBytes) : undefined;
+}
+
+/**
+ * Updates not yet downloading, for the Apps tab badge. Reads only the apps table and the
+ * download ids, so the tab bar doesn't redo the whole library on every progress tick.
+ */
+export function useUpdateCount() {
+  const appsQuery = useLiveQuery(db.select().from(apps));
+  const downloadsQuery = useLiveQuery(
+    db
+      .select({ topicId: downloads.topicId, version: downloads.version })
+      .from(downloads)
+      .where(not(inArray(downloads.status, ['cancelled', 'installed']))),
+  );
+  const [betas] = useSetting('notifyBetas');
+  const started = new Set(downloadsQuery.data.map((d) => `${d.topicId}:${d.version}`));
+  return appsQuery.data.filter(
+    (a) => hasUpdate(a, betas) && !started.has(`${a.topicId}:${a.latestVersion}`),
+  ).length;
 }
 
 /** Tracked apps with their files and downloads, live from SQLite. */
@@ -53,16 +83,17 @@ export function useLibrary() {
   const [preferredAbi] = useSetting('preferredAbi');
   const abis = deviceAbis();
 
+  const filesByTopic = groupBy(filesQuery.data, (f) => f.topicId);
+  const downloadsByTopic = groupBy(downloadsQuery.data, (d) => d.topicId);
   const items: LibraryItem[] = appsQuery.data.map((app) => {
-    const own = filesQuery.data.filter((f) => f.topicId === app.topicId);
+    const own = filesByTopic.get(app.topicId) ?? [];
     return {
       app,
       files: own,
       file: pickFile(own, abis, { preferredAbi, rememberedPattern: app.filePattern }),
       download:
-        downloadsQuery.data.find(
+        downloadsByTopic.get(app.topicId)?.find(
           (d) =>
-            d.topicId === app.topicId &&
             d.version === app.latestVersion &&
             // A leftover try for the version already installed isn't this app's state.
             d.version !== app.installedVersion,

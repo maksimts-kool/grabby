@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { View, type DimensionValue } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   ReduceMotion,
   useAnimatedStyle,
@@ -26,6 +27,8 @@ export function SkeletonGroup({ children }: { children: ReactNode }) {
       -1,
       true,
     );
+    // An endless loop outlives its screen unless it's stopped.
+    return () => cancelAnimation(opacity);
   }, [opacity]);
   return <Pulse.Provider value={opacity}>{children}</Pulse.Provider>;
 }

@@ -7,6 +7,7 @@ import {
   formatTransferred,
   meta,
 } from '../format';
+import { shareRows } from '../rows';
 import { isCheckDue, isCheckLate, needsReschedule } from '../schedule';
 import { hasUpdate } from '../updates';
 import { compareVersions, isNewer, isPrerelease } from '../version';
@@ -172,5 +173,27 @@ describe('check schedule', () => {
     expect(needsReschedule(720, 720)).toBe(false);
     expect(needsReschedule(null, 720)).toBe(true);
     expect(needsReschedule(360, 720)).toBe(true);
+  });
+});
+
+describe('shareRows', () => {
+  const a = { id: 1, name: 'OsmAnd', log: [{ v: '5.5' }] };
+  const b = { id: 2, name: 'Moovit', log: null };
+
+  it('keeps the previous array when nothing changed', () => {
+    const prev = [a, b];
+    expect(shareRows(prev, [{ ...a, log: [{ v: '5.5' }] }, { ...b }])).toBe(prev);
+  });
+
+  it('keeps unchanged rows when one row changed', () => {
+    const next = shareRows([a, b], [a, { ...b, name: 'Moovit 2' }]);
+    expect(next[0]).toBe(a);
+    expect(next[1].name).toBe('Moovit 2');
+  });
+
+  it('notices added and removed rows', () => {
+    const prev = [a, b];
+    expect(shareRows(prev, [a])).toEqual([a]);
+    expect(shareRows([a], prev)).toEqual(prev);
   });
 });

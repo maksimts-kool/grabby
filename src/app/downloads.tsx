@@ -1,5 +1,5 @@
 import { desc, inArray, not } from 'drizzle-orm';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from '@/db/live';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { View } from 'react-native';

@@ -51,7 +51,7 @@ src/app/                 routes: (tabs)/ Apps · Activity · Settings, downloads
 src/components/ui/       the design-system components in React Native + Unistyles
 src/theme/               tokens.ts (generated), unistyles.ts (themes, dark first), icons.ts (path strings)
 src/fourpda/             fetch + windows-1251 decode + parser for topic pages, with fixtures and tests
-src/db/                  expo-sqlite + Drizzle schema: apps, files, downloads, activity
+src/db/                  expo-sqlite + Drizzle schema: apps, files, downloads, activity; live.ts (live queries)
 src/services/            checker (background + manual), download queue, notifications, session
 src/native/              typed wrapper over the Kotlin module, safe when it's missing (tests)
 modules/grabby-native/   Kotlin: PackageManager, WorkManager downloads, PackageInstaller, cookies, settings
