@@ -14,15 +14,14 @@ import { Text } from './Text';
 
 const TABS: Record<string, { icon: IconName; label: string }> = {
   index: { icon: 'apps', label: 'Apps' },
-  downloads: { icon: 'download', label: 'Downloads' },
   activity: { icon: 'bell', label: 'Activity' },
   settings: { icon: 'settings', label: 'Settings' },
 };
 
 /**
- * Bottom navigation, four fixed tabs: Apps · Downloads · Activity · Settings.
- * Active: lime pill behind the icon (grows from the centre, 200 ms ease-out), ink label. Badges (amber) only on Apps and Downloads,
- * passed through each screen's `tabBarBadge` option.
+ * Bottom navigation, three fixed tabs: Apps · Activity · Settings.
+ * Active: lime pill behind the icon (grows from the centre, 200 ms ease-out), ink label. Badge (amber) only on Apps,
+ * passed through the screen's `tabBarBadge` option.
  */
 export function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { theme } = useUnistyles();

@@ -15,3 +15,8 @@ env:
 - back
 - assertVisible:
     id: 'app-row-${TOPIC}'
+- tapOn:
+    id: 'downloads'
+- assertVisible: 'Downloads'
+- back
+- assertVisible: 'My apps'

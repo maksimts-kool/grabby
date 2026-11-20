@@ -83,6 +83,7 @@ function Navigator() {
         <Stack.Protected guard={onboarded} redirectTo="/onboarding">
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="add" />
+          <Stack.Screen name="downloads" />
           <Stack.Screen name="app/[topicId]" />
           <Stack.Screen
             name="install/[id]"

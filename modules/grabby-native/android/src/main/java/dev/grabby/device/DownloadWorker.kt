@@ -351,7 +351,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
     try {
       NotificationManagerCompat.from(ctx).notify(notificationId + 1, notification)
     } catch (e: SecurityException) {
-      // Notifications are off; Activity and the Downloads tab still show it.
+      // Notifications are off; Activity and Downloads still show it.
     }
   }
 

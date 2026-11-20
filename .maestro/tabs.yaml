@@ -1,10 +1,7 @@
-# The four tabs open and show their empty states on a fresh install (after onboarding).
+# The three tabs open and show their empty states on a fresh install (after onboarding).
 appId: dev.grabby.app
 ---
 - launchApp
-- tapOn:
-    id: 'tab-downloads'
-- assertVisible: 'Nothing downloading'
 - tapOn:
     id: 'tab-activity'
 - assertVisible: 'Activity'

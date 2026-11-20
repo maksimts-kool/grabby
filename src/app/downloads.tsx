@@ -22,7 +22,7 @@ import { apps, downloads, type Download } from '@/db/schema';
 import { useCheck } from '@/hooks/useCheck';
 import { useInstalling, useRowActions } from '@/hooks/useRowActions';
 import { useSystemState } from '@/hooks/useSystemState';
-import { formatSize, formatSpeed, formatTransferred, meta } from '@/lib/format';
+import { formatSize, formatSpeed, formatTransferred } from '@/lib/format';
 import { useSetting } from '@/lib/settings';
 import { native } from '@/native';
 import {
@@ -40,7 +40,7 @@ import {
   allowMobileDataOnce,
 } from '@/services/downloads';
 
-/** The queue: what's moving, what waits, what's ready for the install tap, what failed and why. */
+/** Pushed from My apps. The queue: what's moving, what waits, what's ready for the install tap, what failed and why. */
 export default function DownloadsScreen() {
   const insets = useSafeAreaInsets();
   const system = useSystemState(5000);
@@ -85,16 +85,6 @@ export default function DownloadsScreen() {
     wifiOnly && system.network !== 'wifi' && active.some((d) => d.status === 'queued' && d.workId);
   const storageFail = failed.find((d) => d.error === 'storage');
   const freeable = installed.data.reduce((sum, d) => sum + (d.bytesTotal ?? 0), 0);
-
-  const subtitle = waitingForWifi
-    ? 'Paused, waiting for Wi‑Fi'
-    : active.length
-      ? meta(`${active.length} in progress`, system.network === 'wifi' ? 'on Wi‑Fi' : null)
-      : ready.length
-        ? `${ready.length} ready to install`
-        : failed.length
-          ? `${failed.length} failed`
-          : undefined;
 
   const row = (d: Download) => {
     const a = app(d);
@@ -175,14 +165,12 @@ export default function DownloadsScreen() {
     return { key: String(d.id), node };
   };
 
-  const items: CardListItem[] = [
-    block('top', <TopBar large title="Downloads" subtitle={subtitle} />),
-  ];
+  const items: CardListItem[] = [block('top', <TopBar back title="Downloads" />)];
 
   if (rows.updatedAt !== undefined && !rows.data.length) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]} testID="downloads-empty">
-        <TopBar large title="Downloads" />
+        <TopBar back title="Downloads" />
         <View style={styles.centre}>
           <EmptyState
             icon="download"

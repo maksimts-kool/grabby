@@ -143,7 +143,7 @@ export default function ActivityScreen() {
 
   const open = (e: ActivityEntry) => {
     if (e.kind === 'download-failed' || e.kind === 'download-ready')
-      return () => router.navigate('/downloads');
+      return () => router.push('/downloads');
     if (e.kind === 'session-expired') return () => router.navigate('/settings');
     if (e.topicId) return () => router.push(`/app/${e.topicId}`);
     if (e.kind === 'updates-found') return () => router.navigate('/');

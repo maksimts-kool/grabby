@@ -49,6 +49,8 @@ export function CardList({ items, refreshing, onRefresh, footer, testID }: CardL
       keyExtractor={(item) => item.key}
       getItemType={(item) => item.type}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       ListFooterComponent={footer}
       refreshControl={
         onRefresh ? (

@@ -4,11 +4,10 @@ import { useUnistyles } from 'react-native-unistyles';
 import { TabBar } from '@/components/ui';
 import { useLibrary } from '@/hooks/useLibrary';
 
-/** Four fixed tabs: Apps · Downloads · Activity · Settings. Badges only on Apps and Downloads. */
+/** Three fixed tabs: Apps · Activity · Settings. Badge only on Apps; Downloads opens from My apps. */
 export default function TabsLayout() {
   const { theme } = useUnistyles();
-  const { updates, items } = useLibrary();
-  const ready = items.filter((i) => i.download?.status === 'ready').length;
+  const { updates } = useLibrary();
   const pending = updates.filter((i) => !i.download).length;
   return (
     <Tabs
@@ -20,10 +19,6 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Apps', tabBarBadge: pending || undefined }} />
-      <Tabs.Screen
-        name="downloads"
-        options={{ title: 'Downloads', tabBarBadge: ready || undefined }}
-      />
       <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>

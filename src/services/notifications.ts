@@ -116,7 +116,7 @@ export function handleNotificationResponses(onUpdateAll: () => void) {
     const { actionIdentifier, notification } = response;
     if (actionIdentifier === 'update-all') {
       onUpdateAll();
-      router.navigate('/downloads');
+      router.push('/downloads');
       return;
     }
     const url = notification.request.content.data?.url;

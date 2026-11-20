@@ -20,7 +20,7 @@ export interface TopBarProps {
   title?: string;
   /** Large bars only. */
   subtitle?: string;
-  /** Large title on the four tab roots; small bar with a back arrow on pushed screens. */
+  /** Large title on the tab roots; small bar with a back arrow on pushed screens. */
   large?: boolean;
   back?: boolean;
   /** At most three, plain. */

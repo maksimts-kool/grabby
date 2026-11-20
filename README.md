@@ -46,7 +46,7 @@ CI (`.github/workflows/ci.yml`) runs the checks and compiles the Kotlin module.
 
 ```
 index.ts                 registers the Unistyles theme and the background task, then expo-router
-src/app/                 routes: (tabs)/ Apps · Downloads · Activity · Settings, add, app/[topicId],
+src/app/                 routes: (tabs)/ Apps · Activity · Settings, downloads, add, app/[topicId],
                          onboarding, sign-in, install/[id] (target of the "ready" notification)
 src/components/ui/       the design-system components in React Native + Unistyles
 src/theme/               tokens.ts (generated), unistyles.ts (themes, dark first), icons.ts (path strings)

@@ -74,8 +74,8 @@ export function useRowActions() {
     try {
       await install(downloadId);
     } catch (e) {
-      // Blocked: the Downloads tab carries the banner that unblocks it.
-      if (e instanceof InstallPermissionError) router.navigate('/downloads');
+      // Blocked: Downloads carries the banner that unblocks it.
+      if (e instanceof InstallPermissionError) router.push('/downloads');
       else snackbar({ message: 'The downloaded file is gone — download it again' });
     }
   };

@@ -39,7 +39,6 @@ export default function LibraryScreen() {
   const snackbar = useSnackbar();
   const sheet = useRef<AppActionsSheetRef>(null);
   const now = useNow();
-  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -50,13 +49,14 @@ export default function LibraryScreen() {
       snackbar({
         message: n ? `${n} ${n === 1 ? 'update' : 'updates'} queued` : 'Nothing to download yet',
         action: n ? 'View' : undefined,
-        onAction: () => router.navigate('/downloads'),
+        onAction: () => router.push('/downloads'),
       });
     } finally {
       setBusy(false);
     }
   };
 
+  const ready = lib.items.filter((i) => i.download?.status === 'ready').length;
   const topBar = (subtitle: string) => (
     <TopBar
       large
@@ -66,10 +66,11 @@ export default function LibraryScreen() {
         ...(lib.items.length
           ? [
               {
-                icon: 'search' as const,
-                label: 'Search',
-                onPress: () => setSearching((s) => !s),
-                testID: 'search',
+                icon: 'download' as const,
+                label: ready ? `Downloads, ${ready} ready to install` : 'Downloads',
+                badge: ready > 0,
+                onPress: () => router.push('/downloads'),
+                testID: 'downloads',
               },
             ]
           : []),
@@ -138,26 +139,12 @@ export default function LibraryScreen() {
     };
   };
 
-  const match = (i: LibraryItem) =>
-    !query || i.app.title.toLowerCase().includes(query.trim().toLowerCase());
+  const needle = query.trim().toLowerCase();
+  const match = (i: LibraryItem) => !needle || i.app.title.toLowerCase().includes(needle);
   const updates = lib.updates.filter(match);
   const upToDate = lib.upToDate.filter(match);
 
   const items: CardListItem[] = [block('top', topBar(subtitle))];
-  if (searching) {
-    items.push(
-      block(
-        'search',
-        <SearchField
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search your apps"
-          autoFocus
-        />,
-      ),
-      block('search-gap', <Gap />),
-    );
-  }
   if (offline) {
     items.push(
       block(
@@ -219,19 +206,33 @@ export default function LibraryScreen() {
     );
   }
 
-  if (!searching) {
+  items.push(
+    block(
+      'summary',
+      <UpdateSummary
+        count={lib.updates.length}
+        size={lib.updateSize}
+        checked={lib.lastChecked ? `checked ${formatRelative(lib.lastChecked, now)}` : undefined}
+        tracked={lib.items.length}
+        checking={check.checking}
+        busy={busy}
+        onCheck={() => void check.run()}
+        onUpdateAll={() => void updateAll()}
+      />,
+    ),
+  );
+  // Always shown under the summary: filters the lists without hiding the summary, and there's
+  // no toggle to close it, only Clear.
+  if (lib.items.length > 1) {
     items.push(
+      block('search-gap', <Gap />),
       block(
-        'summary',
-        <UpdateSummary
-          count={lib.updates.length}
-          size={lib.updateSize}
-          checked={lib.lastChecked ? `checked ${formatRelative(lib.lastChecked, now)}` : undefined}
-          tracked={lib.items.length}
-          checking={check.checking}
-          busy={busy}
-          onCheck={() => void check.run()}
-          onUpdateAll={() => void updateAll()}
+        'search',
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search your apps"
+          label="Search your apps"
         />,
       ),
     );
@@ -248,7 +249,7 @@ export default function LibraryScreen() {
       ...card('latest', upToDate.map(row)),
     );
   }
-  if (searching && !updates.length && !upToDate.length) {
+  if (needle && !updates.length && !upToDate.length) {
     items.push(
       block('no-match', <EmptyState icon="search" title={`No tracked app matches “${query}”`} />),
     );
